@@ -30,7 +30,7 @@ char **FilePaths=NULL;
 //this is defined in common.c
 //int Flags=0;
 
-char *Version="1.0";
+char *Version="2.0";
 
 typedef struct 
 {
