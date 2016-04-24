@@ -43,6 +43,7 @@ Mandatory arguments to long options are mandatory for short options too.
       --complement        complement the set of selected bytes, characters or fields
   -j, --join-delims       combine runs of delimters and treat them as one delimiter
   -q, --quote             honor quoting within target document using \ or ' or "
+  -Q, --quote-strip       honor quoting within target document, but strip quotes off output fields
   -s, --only-delimited    do not print lines not containing delimiters
   -T, --output-delimiter=[string] use string as the output delimiter
                             the default is to use the input delimiter

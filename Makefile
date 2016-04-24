@@ -1,3 +1,4 @@
+PREFIX=/usr/local
 FLAGS=-g -Wall
 all: common.o ccut
 
@@ -12,3 +13,6 @@ clean:
 
 check:
 	@./check.sh
+
+install:
+	cp ccut $(DESTDIR)$(PREFIX)/bin

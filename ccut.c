@@ -8,10 +8,11 @@
 #define FLAG_REVERSE  16
 #define FLAG_SUPPRESS 32
 #define FLAG_QUOTED   64
-#define FLAG_COMPLEMENT 128
+#define FLAG_QUOTE_STRIP 128
 #define FLAG_COMBINE_DELIMS 256
 #define FLAG_SETVARS 512
 #define FLAG_ZERO_TERM 1024
+#define FLAG_COMPLEMENT 2048
 
 #define OPT_NAME  1
 #define OPT_SHORT 2
@@ -20,8 +21,10 @@
 #define FIELD_INCLUDED 1
 #define FIELD_LAST 2
 
-char *Delim=NULL, *OutputDelim=NULL, *InPath=NULL, *OutPath=NULL, *FieldSpec=NULL;
+char *Delim=NULL, *OutputDelim=NULL, *OutPath=NULL, *FieldSpec=NULL;
 int StartPos=0, EndPos=0, MaxField=0, DelimLen=0;
+
+char **FilePaths=NULL;
 
 
 //this is defined in common.c
@@ -52,6 +55,7 @@ printf("  -f, --fields=LIST       select only these fields;  also print any line
 printf("      --complement        complement the set of selected bytes, characters or fields\n");
 printf("  -j, --join-delims       combine runs of delimters and treat them as one delimiter\n");
 printf("  -q, --quote             honor quoting within target document using \\ or ' or \"\n");
+printf("  -Q, --quote-strip       honor quoting within target document, but strip quotes off output fields\n");
 //printf("  -r, --reverse           cut by counting chars/bytes/fields from end of line, not from start of line\n");
 printf("  -s, --only-delimited    do not print lines not containing delimiters\n");
 printf("  -T, --output-delimiter=[string] use string as the output delimiter\n");
@@ -104,43 +108,12 @@ exit(0);
 
 
 
-void ParseVars(TCutField *Fields, const char *VarList)
-{
-const char *start, *ptr;
-int i=0;
-
-start=VarList;
-ptr=strchr(start, ',');
-while (start)
-{
-	if (! ptr)
-	{
-		Fields[i].Var=CopyStr(Fields[i].Var,start);
-		break;
-	}
-	else Fields[i].Var=CopyStrLen(Fields[i].Var, start, ptr-start);
-
-	ptr++;
-	i++;
-
-	if (i > MaxField) break;
-	if (*ptr == '\0') break;
-
-	start=ptr;
-	ptr=strchr(start, ',');
-}
-
-}
-
-
-
-
 TCutField *ParseCommandLine(int argc, char *argv[])
 {
 int i, State=OPT_NAME;
-char *Tempstr=NULL, *VarList=NULL, *ptr, *arg;
+char *Tempstr=NULL, *ptr, *arg;
 TCutField *CutFields=NULL;
-int val;
+int val, fcount=0;
 
 for (i=1; i < argc; i++)
 {
@@ -155,8 +128,9 @@ for (i=1; i < argc; i++)
 	switch (State)
 	{
 		case OPT_NAME:
-			if (! StrLen(InPath)) InPath=CopyStr(InPath, argv[i]);
-			else if (! StrLen(OutPath)) OutPath=CopyStr(OutPath, argv[i]);
+			FilePaths=(char **) realloc(FilePaths, sizeof(char *) * (fcount + 1));
+			FilePaths[fcount]=argv[i];
+			fcount++;
 		break;
 
 
@@ -168,6 +142,7 @@ for (i=1; i < argc; i++)
 					ParseCommandValue(argc, argv, ++i, 0, &FieldSpec);
 					GetMinMaxFields(FieldSpec, &val, &MaxField);
 				break;
+
 				case 'b': 
 					Flags |= FLAG_BYTES; 
 					ParseCommandValue(argc, argv, ++i, 0, &FieldSpec);
@@ -178,6 +153,7 @@ for (i=1; i < argc; i++)
 				//case 'r': Flags |= FLAG_REVERSE; break;
 				case 's': Flags |= FLAG_SUPPRESS; break;
 				case 'q': Flags |= FLAG_QUOTED; break;
+				case 'Q': Flags |= FLAG_QUOTED | FLAG_QUOTE_STRIP; break;
 				case 'j': Flags |= FLAG_COMBINE_DELIMS; break;
 
 
@@ -198,6 +174,8 @@ for (i=1; i < argc; i++)
 
 				case 'z': Flags |= FLAG_ZERO_TERM; break;
 
+				default:
+					printf("ERROR: unknown short option '-%c'\n",*ptr);
 				case '?':
 					DisplayHelp();
 				break;
@@ -231,7 +209,10 @@ for (i=1; i < argc; i++)
 							GetMinMaxFields(FieldSpec, &val, &MaxField);
 						}
 						else if (strcmp(ptr, "complement")==0) Flags |= FLAG_COMPLEMENT;
-						else if (strcmp(ptr, "join-delims")==0) Flags |= FLAG_COMBINE_DELIMS;
+					break;
+
+					case 'd':
+					if (strcmp(ptr,"delimiter")==0) ParseCommandValue(argc, argv, ++i, 0, &Delim);
 					break;
 
 					case 'f':
@@ -245,11 +226,11 @@ for (i=1; i < argc; i++)
 
 					case 'o':
 						if (strcmp(ptr, "only-delimited")==0) Flags |= FLAG_SUPPRESS;
-						if (strcmp(ptr, "output-delimiter")==0) Flags |= FLAG_SUPPRESS;
+						if (strcmp(ptr, "output-delimiter")==0) ParseCommandValue(argc, argv, ++i, 0, &OutputDelim);
 					break;
 
-					case 'h':
-						if (strcmp(ptr,"help")==0) DisplayHelp();
+					case 'j':
+						if (strcmp(ptr, "join-delims")==0) Flags |= FLAG_COMBINE_DELIMS;
 					break;
 
 					/*
@@ -259,18 +240,26 @@ for (i=1; i < argc; i++)
 					break;
 					*/
 
+					case 'q':
+						if (strcmp(ptr,"quote")==0) Flags |= FLAG_QUOTED; 
+						if (strcmp(ptr,"quote-strip")==0) Flags |= FLAG_QUOTED | FLAG_QUOTE_STRIP; 
+					break;
+
 					case 'v':
 						if (strcmp(ptr,"version")==0) DisplayVersion();
-						if (strcmp(ptr,"vars")==0) 
-						{
-							Flags |= FLAG_SETVARS;
-							VarList=CopyStr(VarList,arg);
-						}
 					break;
 
 					case 'z': 
 						if (strcmp(ptr,"zero-terminated")==0) Flags |= FLAG_ZERO_TERM; 
 					break;
+
+					default:
+					printf("ERROR: unknown long option '--%s'\n",ptr);
+					case 'h':
+						if (strcmp(ptr,"help")==0) DisplayHelp();
+					break;
+
+
 				}
 		break;
 
@@ -279,20 +268,27 @@ for (i=1; i < argc; i++)
 	}
 }
 
-if ((Flags & FLAG_FIELDS) && (StrLen(Delim)==0)) Delim=CopyStr(Delim,"	");
-CutFields=(TCutField *) calloc(MaxField+1,sizeof(TCutField));
-if (StrLen(VarList)) ParseVars(CutFields, VarList);
-
-DelimLen=StrLen(Delim);
-
 if (! (Flags & (FLAG_FIELDS | FLAG_CHARS | FLAG_BYTES))) 
 {
 	fprintf(stderr,"cut: you must specify a list of bytes, characters, or fields\n");
 	exit(3);
 }
 
+if ((Flags & FLAG_FIELDS) && (StrLen(Delim)==0)) Delim=CopyStr(Delim,"	");
+CutFields=(TCutField *) calloc(MaxField+1,sizeof(TCutField));
+
+DelimLen=StrLen(Delim);
+
+
+//NULL terminate FilePaths array
+if (FilePaths)
+{
+FilePaths=(char **) realloc(FilePaths, sizeof(char *) * (fcount + 1));
+FilePaths[fcount]=NULL;
+}
+	
+
 Destroy(Tempstr);
-Destroy(VarList);
 
 return(CutFields);
 }
@@ -337,6 +333,8 @@ for (ptr=fstart; /* we have to handle '\0' */ ; ptr++)
 	}
 
 }
+
+
 
 return(ptr);
 }
@@ -389,39 +387,39 @@ return(fcount);
 void OutputField(const char *start, const char *end, int IsLast)
 {
 const char *ptr;
-char *Tempstr=NULL;
+char delim;
 
 
 if (start)
 {
+	//safety check in case end was never set
 	for (ptr=start; ptr && (ptr < end) ; ptr++) 
 	{
 		if (*ptr == '\0') break;
 	}
 
-	if (Flags & FLAG_SETVARS)
+	delim=*ptr;
+
+	if (
+			(Flags & FLAG_QUOTE_STRIP) &&
+			((*start=='\'') || (*start=='"')) &&
+			(ptr > start) &&
+			(*(ptr-1)==*start)
+		)
 	{
-		/*
-		Tempstr=MCopyStr(Tempstr,CutFields[FieldNo].Var,"=",NULL);
-		Tempstr=CatStrLen(Tempstr,start,ptr-start);
-		Tempstr=CatStr(Tempstr,"; ");
-		fwrite(Tempstr,StrLen(Tempstr),1,stdout);
-		*/
+		start++;
+		ptr--;
 	}
-	else
+
+	fwrite(start,ptr-start,1,stdout);
+	if (! IsLast)
 	{
-		if (OutputDelim) 
-		{
-			fwrite(start,ptr-start,1,stdout);
-			fputs(OutputDelim, stdout);
-		}
-		else if (IsLast) fwrite(start,ptr-start,1,stdout);
-		else fwrite(start,ptr+1-start,1,stdout);
+	if (OutputDelim) fputs(OutputDelim, stdout);
+	else fputc(delim, stdout);
 	}
 }
 
 
-Destroy(Tempstr);
 }
 
 
@@ -643,17 +641,10 @@ putchar('\n');
 }
 
 
-
-
-int main(int argc, char *argv[])
+void ProcessInput(FILE *InF, TCutField *CutFields)
 {
-TCutField *CutFields=NULL;
 char *Tempstr=NULL;
-FILE *InF;
 
-CutFields=ParseCommandLine(argc, argv);
-
-InF=stdin;
 if (Flags & FLAG_ZERO_TERM) Tempstr=FILEReadLine(Tempstr,InF,'\0');
 else Tempstr=FILEReadLine(Tempstr,InF,'\n');
 
@@ -668,6 +659,27 @@ else Tempstr=FILEReadLine(Tempstr,InF,'\n');
 }
 
 Destroy(Tempstr);
+}
+
+
+int main(int argc, char *argv[])
+{
+TCutField *CutFields=NULL;
+FILE *InF;
+int i;
+
+CutFields=ParseCommandLine(argc, argv);
+
+if (FilePaths)
+{
+	for (i=0; FilePaths[i] != NULL; i++)
+	{
+		InF=fopen(FilePaths[i],"r");
+		if (InF) ProcessInput(InF, CutFields);
+		fclose(InF);
+	}
+}
+else ProcessInput(stdin, CutFields);
 
 return(0);
 }
