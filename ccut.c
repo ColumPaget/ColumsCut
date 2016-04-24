@@ -27,7 +27,7 @@ int StartPos=0, EndPos=0, MaxField=0, DelimLen=0;
 //this is defined in common.c
 //int Flags=0;
 
-char *Version="0.1";
+char *Version="1.0";
 
 typedef struct 
 {
