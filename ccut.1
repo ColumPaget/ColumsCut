@@ -1,0 +1,160 @@
+.TH  ccut  1 " 2016/05/15"
+.SS ccut - COLUM\(')S CUT
+
+.P
+ccut is a unix \(aqcut\(aq command with a couple of extra features (and a couple of features missing). ccut supports multiple delimiters, treating runs of a delimiter as one delimiter, quoting within the cut document, outputting fields in any specified order, and outputting a different delimiter than those within the cut document.
+.SS SYNTAX
+
+.P
+Usage: cut OPTION... [FILE]...
+.P
+Mandatory arguments to long options are mandatory for short options too.
+.TP
+\fB-b, --bytes=[list]\fP
+select only these bytes
+
+.TP
+\fB-c, --characters=[list]\fP
+select only these characters
+
+.TP
+\fB-d, -t, --delimiter\fP=[list]
+list of delimiter characters. Default is just the \(aqtab\(aq character.
+
+.TP
+\fB-f, --fields=LIST\fP
+select only these fields;  also print any line without delimiter characters, unless the -s option is specified
+
+.TP
+\fB--complement\fP
+complement the set of selected bytes, characters or fields
+
+.TP
+\fB-j, --join-delims\fP
+combine runs of delimters and treat them as one delimiter
+
+.TP
+\fB-q, --quote\fP
+honor quoting within target document using  or \(aq or "
+
+.TP
+\fB-Q, --quote-strip\fP
+honor quoting within target document, but strip quotes off output fields
+
+.TP
+\fB-s, --only-delimited\fP
+do not print lines not containing delimiters
+
+.TP
+\fB-T, --output-delimiter=[string]\fP
+use string as the output delimiter the default is to use the input delimiter
+
+.TP
+\fB-z, --zero-terminated\fP
+read input where lines are null terminated
+
+.TP
+\fB--help\fP
+display this help and exit
+
+.TP
+\fB--version\fP
+output version information and exit
+
+.P
+Use one, and only one of -b, -c or -f.  Each LIST is made up of one range, or many ranges separated by commas.
+THIS CUT DOES NOT SUPPORT WIDE CHARACTERS (yet). So \(aq-c\(aq and \(aq-b\(aq are equivalent
+.P
+Multiple characters can be specified as the input delimiter. The following quoted characters are recognized:
+
+.nf
+
+        e                      escape
+        t                      tab
+        r                      carriage\-return
+        n                      newline
+        xnn            where 'nn' is a two\-digit hex\-code
+.fi
+.ad b
+
+.P
+Selected input is written in the SPECIFIED ORDER (unlike gnu cut), and fields can be output multiple times.
+However, order has no meaning when cut is run with \(hycomplement, so then fields are output in the order they are encountered in the data
+.P
+Each range is one of:
+
+.nf
+
+  N     N'th byte, character or field, counted from 1
+  N\-    from N'th byte, character or field, to end of line
+  N\-M   from N'th to M'th (included) byte, character or field
+  \-M    from first to M'th (included) byte, character or field
+.fi
+.ad b
+
+.SS EXAMPLES
+
+.P
+Cut using either [ or ] as the delimiter
+.P
+
+.nf
+cat file | ccut \-d "[]" \-f 3
+.fi
+.ad b
+
+.P
+Cut and output fields in a particular order
+.P
+
+.nf
+cat file | ccut \-f 3,1,6,5
+.fi
+.ad b
+
+.P
+cut using escape and tab as delimiters
+.P
+
+.nf
+cat file | ccut \-d "et" \-f 4
+.fi
+.ad b
+
+.P
+cut honoring document quoting (quoting can use  \(aq or ")
+.P
+
+.nf
+echo "field1,"field2 with , in it",field3,field4,comma,field5 | ccut \-d , \-q \-f 4
+.fi
+.ad b
+
+.P
+cut using space, comma and semicolon as delimiters, replace delimiters with \(aq-\(aq on output
+.P
+
+.nf
+echo "field1 field2,field3;field4,field5" | ccut \-d " ,;" \-f 2,4 \-T \-
+.fi
+.ad b
+
+.P
+cut using space as a delimiter, and treating runs of multiple spaces as one delimiter
+.P
+
+.nf
+echo "field1 field2     field3  field4 field5" | ccut \-d " " \-j \-f 2,4,3 \-T \-
+.fi
+.ad b
+
+.SS AUTHOR
+
+.P
+Written by Colum Paget <colums.projects@gmail.com>
+.SS COPYRIGHT
+
+.P
+Copyright \(co 2016 Colum Paget. License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.
+.br
+This is free software: you are free to change and redistribute it. There is NO WARRANTY, to the extent permitted by law.
