@@ -1,5 +1,4 @@
 #include "common.h"
-#include "libUseful-2.0/libUseful.h"
 #include <ctype.h>
 
 int Flags=0;
@@ -64,7 +63,7 @@ return(CatStr(Dest,Src));
 
 
 
-inline char *AddCharToBuffer(char *Dest, size_t DestLen, char Char)
+char *AddCharToBuffer(char *Dest, size_t DestLen, char Char)
 {
 char *actb_ptr;
 

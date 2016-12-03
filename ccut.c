@@ -1,4 +1,3 @@
-#include "libUseful-2.0/libUseful.h"
 #include "common.h"
 #include <ctype.h>
 
@@ -30,7 +29,7 @@ char **FilePaths=NULL;
 //this is defined in common.c
 //int Flags=0;
 
-char *Version="2.0";
+char *Version="2.1";
 
 typedef struct 
 {
@@ -39,6 +38,9 @@ const char *Start;
 const char *End;
 char *Var;
 } TCutField;
+
+
+
 
 
 void DisplayHelp()
