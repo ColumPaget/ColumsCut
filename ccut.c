@@ -29,7 +29,7 @@ char **FilePaths=NULL;
 //this is defined in common.c
 //int Flags=0;
 
-char *Version="2.1";
+char *Version="2.2";
 
 typedef struct 
 {
@@ -461,7 +461,7 @@ if (First < 1) First=1;
 First--;
 ptr=CutFields[First].Start;
 
-while (*ptr !='\0')
+while (ptr && (*ptr !='\0'))
 {
 	ptr=ExtractNextField(ptr, &Start, &End);
 	OutputField(Start,End,FALSE);
