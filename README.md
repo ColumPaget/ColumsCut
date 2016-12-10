@@ -6,7 +6,16 @@ date: 2016/05/15
 ccut - COLUM'S CUT
 ------------------
 
-ccut is a unix 'cut' command with a couple of extra features (and a couple of features missing). ccut supports multiple delimiters, treating runs of a delimiter as one delimiter, quoting within the cut document, outputting fields in any specified order, and outputting a different delimiter than those within the cut document.
+ccut is a unix 'cut' command with a couple of extra features (and a couple of features missing). 
+
+ccut supports:
+
+multiple delimiters 
+treating runs of a delimiter as one delimiter
+quoting using either quotes or backslash within the cut document
+outputting fields in any specified order
+outputting a different delimiter than those within the cut document
+setting variables in the shell to values of cut fields
 
 
 
@@ -47,13 +56,16 @@ Mandatory arguments to long options are mandatory for short options too.
 *-T, --output-delimiter=[string]*
  : use string as the output delimiter the default is to use the input delimiter
 
+*-V, --vars=[list]*
+ : print out bash commands to set variables using the supplied comma-separated list of names
+
 *-z, --zero-terminated*
  : read input where lines are null terminated
 
-*--help*
+*-?, --help*
  : display this help and exit
 
-*--version*
+*-v, --version*
  : output version information and exit
 
 
@@ -79,6 +91,9 @@ Each range is one of:
   N-M   from N'th to M'th (included) byte, character or field
   -M    from first to M'th (included) byte, character or field
 ```
+
+The '-V' or '--vars' option allows a comma-separated list of variable names to be supplied. Cut will then match output fields to those variable names and print out commands to set those variables in a borne-style shell. This can then be used with the 'eval' command to set variables in the shell.
+
 
 EXAMPLES
 --------
@@ -107,6 +122,10 @@ cut using space as a delimiter, and treating runs of multiple spaces as one deli
 
 `echo "field1 field2     field3  field4 field5" | ccut -d " " -j -f 2,4,3 -T -`
 
+set variables in the shell from fields in input
+
+```eval `echo apples,oranges,pears,lemons,lime | ccut -d , -f 2,4,5,1,3 -V citrus1,citrus2,citrus3,poma1,poma2` ```
+
 
 AUTHOR
 ------
@@ -118,3 +137,5 @@ COPYRIGHT
 
 Copyright (c) 2016 Colum Paget. License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.  
 This is free software: you are free to change and redistribute it. There is NO WARRANTY, to the extent permitted by law.
+
+
