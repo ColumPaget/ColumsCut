@@ -10,12 +10,12 @@ ccut is a unix 'cut' command with a couple of extra features (and a couple of fe
 
 ccut supports:
 
-multiple delimiters 
-treating runs of a delimiter as one delimiter
-quoting using either quotes or backslash within the cut document
-outputting fields in any specified order
-outputting a different delimiter than those within the cut document
-setting variables in the shell to values of cut fields
+multiple delimiters   
+treating runs of a delimiter as one delimiter   
+quoting using either quotes or backslash within the cut document   
+outputting fields in any specified order   
+outputting a different delimiter than those within the cut document   
+setting variables in the shell to values of cut fields   
 
 
 
