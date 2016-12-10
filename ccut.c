@@ -26,17 +26,20 @@ int StartPos=0, EndPos=0, MaxField=0, DelimLen=0;
 char **FilePaths=NULL;
 
 
+//Variable Names used with the '-V' option
+char **VarNames=NULL;
+int VarCount=0;
+
 //this is defined in common.c
 //int Flags=0;
 
-char *Version="2.2";
+char *Version="2.3";
 
 typedef struct 
 {
 int Flags;
 const char *Start;
 const char *End;
-char *Var;
 } TCutField;
 
 
@@ -60,11 +63,12 @@ printf("  -q, --quote             honor quoting within target document using \\ 
 printf("  -Q, --quote-strip       honor quoting within target document, but strip quotes off output fields\n");
 //printf("  -r, --reverse           cut by counting chars/bytes/fields from end of line, not from start of line\n");
 printf("  -s, --only-delimited    do not print lines not containing delimiters\n");
+printf("  -V, --vars=NAMES   print out bash commands to set variables using the supplied list of names\n");
 printf("  -T, --output-delimiter=[string] use string as the output delimiter\n");
 printf("                            the default is to use the input delimiter\n");
 printf("  -z, --zero-terminated   read input where lines are null terminated\n");
-printf("      --help     display this help and exit\n");
-printf("      --version  output version information and exit\n");
+printf("  -?  --help     display this help and exit\n");
+printf("  -v  --version  output version information and exit\n");
 printf("\n");
 printf("Use one, and only one of -b, -c or -f.  Each LIST is made up of one range, or many ranges separated by commas.\n");
 printf("THIS CUT DOES NOT SUPPORT WIDE CHARACTERS (yet). So '-c' and '-b' are equivalent\n\n");
@@ -83,7 +87,11 @@ printf("  N-    from N'th byte, character or field, to end of line\n");
 printf("  N-M   from N'th to M'th (included) byte, character or field\n");
 printf("  -M    from first to M'th (included) byte, character or field\n");
 printf("\n");
-printf("With no FILE, or when FILE is -, read standard input.\n");
+printf("With no FILE, or when FILE is -, read standard input.\n\n");
+
+printf("The '-V' or '--vars' option allows a comma-separated list of variable names to be supplied. Cut will then match output fields to those variable names and print out commands to set those variables in a borne-style shell. This can then be used with the 'eval' command, like so:\n\n");
+printf("	eval `echo apples,oranges,pears,lemons,lime | ccut -d , -f 2,4,5,1,3 -V citrus1,citrus2,citrus3,poma1,poma2`\n\n");
+printf("This will result in the variables being set in the shell, citrus1=oranges, citrus2=lemons, citrus3=limes, poma1=apples and poma2=pears\n");
 
 printf("\n");
 printf("Report bugs to colums.projects@gmail.com\n");
@@ -107,13 +115,60 @@ exit(0);
 
 
 
+void SetupVarNames(TCutField *CutFields, int MaxField, char *Arg)
+{
+int i=0;
+char *ptr;
 
+//must be at least one arg, or we'd not have been called
+VarCount=1;
+
+ptr=strchr(Arg, ',');
+while (ptr)
+{
+VarCount++;
+ptr=strchr(ptr+1, ',');
+}
+
+if (VarCount > 0)
+{
+	VarNames=calloc(VarCount+1, sizeof(char *));
+	ptr=strtok(Arg, ",");
+	while (ptr)
+	{
+		VarNames[i]=CopyStr(VarNames[i], ptr);
+		i++;
+		ptr=strtok(NULL, ",");
+	}
+}
+
+}
+
+
+void ValidateOptions()
+{
+if (! (Flags & (FLAG_FIELDS | FLAG_CHARS | FLAG_BYTES))) 
+{
+	fprintf(stderr,"cut: you must specify a list of bytes, characters, or fields\n");
+	exit(3);
+}
+
+if (Flags & FLAG_SETVARS)
+{
+	if (! (Flags & FLAG_FIELDS))
+	{
+	fprintf(stderr,"cut: the 'vars' option requires the 'fields' (-f) option\n");
+	exit(3);
+	}
+}
+
+}
 
 
 TCutField *ParseCommandLine(int argc, char *argv[])
 {
 int i, State=OPT_NAME;
-char *Tempstr=NULL, *ptr, *arg;
+char *VarNamesArg=NULL, *ptr, *arg;
 TCutField *CutFields=NULL;
 int val, fcount=0;
 
@@ -157,6 +212,15 @@ for (i=1; i < argc; i++)
 				case 'q': Flags |= FLAG_QUOTED; break;
 				case 'Q': Flags |= FLAG_QUOTED | FLAG_QUOTE_STRIP; break;
 				case 'j': Flags |= FLAG_COMBINE_DELIMS; break;
+				case 'v': DisplayVersion(); break;
+
+				//list of variable names. This option makes ccut print out 
+				//a string of <varname>=<field>; that can be used with the shell 'eval'
+				//command to set variables in the shell
+				case 'V': 
+					Flags |= FLAG_SETVARS; 
+					ParseCommandValue(argc, argv, ++i, 0, &VarNamesArg);
+				break;
 
 
 				case 'f':
@@ -249,6 +313,14 @@ for (i=1; i < argc; i++)
 
 					case 'v':
 						if (strcmp(ptr,"version")==0) DisplayVersion();
+						if (strcmp(ptr, "vars")==0)
+						{
+							Flags |= FLAG_SETVARS; 
+							ParseCommandValue(argc, argv, ++i, 0, &VarNamesArg);
+						}
+					break;
+
+
 					break;
 
 					case 'z': 
@@ -270,12 +342,6 @@ for (i=1; i < argc; i++)
 	}
 }
 
-if (! (Flags & (FLAG_FIELDS | FLAG_CHARS | FLAG_BYTES))) 
-{
-	fprintf(stderr,"cut: you must specify a list of bytes, characters, or fields\n");
-	exit(3);
-}
-
 if ((Flags & FLAG_FIELDS) && (StrLen(Delim)==0)) Delim=CopyStr(Delim,"	");
 CutFields=(TCutField *) calloc(MaxField+1,sizeof(TCutField));
 
@@ -288,9 +354,12 @@ if (FilePaths)
 FilePaths=(char **) realloc(FilePaths, sizeof(char *) * (fcount + 1));
 FilePaths[fcount]=NULL;
 }
-	
 
-Destroy(Tempstr);
+
+if (Flags & FLAG_SETVARS) SetupVarNames(CutFields, MaxField, VarNamesArg);
+
+
+Destroy(VarNamesArg);
 
 return(CutFields);
 }
@@ -390,6 +459,7 @@ void OutputField(const char *start, const char *end, int IsLast)
 {
 const char *ptr;
 char delim;
+static int OutputNo=0;
 
 
 if (start)
@@ -400,7 +470,15 @@ if (start)
 		if (*ptr == '\0') break;
 	}
 
+	//we try to use the delimiter that we found, because 
+	//ccut uses multiple delimiters, so we use the one that's
+	//been encountered as the output delimiter too
 	delim=*ptr;
+
+	//the last field will likely have no delimiter. However, because we can rearrange
+	//delimiters it might need one in the output Thus we use the first delimiter in
+	//the given delimiter list to cover this scenario
+	if (delim=='\0') delim=*Delim;
 
 	if (
 			(Flags & FLAG_QUOTE_STRIP) &&
@@ -413,15 +491,28 @@ if (start)
 		ptr--;
 	}
 
-	fwrite(start,ptr-start,1,stdout);
-	if (! IsLast)
+	if (Flags & FLAG_SETVARS)
 	{
-	if (OutputDelim) fputs(OutputDelim, stdout);
-	else fputc(delim, stdout);
+		if (OutputNo < VarCount)
+		{
+		fputs(VarNames[OutputNo], stdout);
+		fputs("='", stdout);
+		fwrite(start,ptr-start,1,stdout);
+		fputs("'; ", stdout);	
+		}
+	}
+	else
+	{
+		fwrite(start,ptr-start,1,stdout);
+		if (! IsLast)
+		{
+		if (OutputDelim) fputs(OutputDelim, stdout);
+		else fputc(delim, stdout);
+		}
 	}
 }
 
-
+OutputNo++;
 }
 
 
@@ -440,17 +531,24 @@ if ((FieldNo > 0) && (FieldNo <= FCount))
 }
 
 
-
+//Output fields in range, like 'cut -f 2-5'
 void OutputFieldRange(int FCount, TCutField *CutFields,int Start, int End, int IsLast)
 {
 int i;
 
 if (Start < 1) Start=1;
-for (i=Start; i < End; i++) OutputCutField(FCount,CutFields,i, FALSE);
+for (i=Start; i < End; i++) 
+{
+	if (IsLast && (i == End)) OutputCutField(FCount,CutFields,i, TRUE);
+	else OutputCutField(FCount,CutFields,i, FALSE);
+}
 OutputCutField(FCount,CutFields,i, IsLast);
 }
 
 
+//Output all fields after a field. This is a 'range' command but with no last field
+//given. So like this:
+//cut -d , -f 2-
 
 void OutputFieldsAfter(int FCount,TCutField *CutFields, int First, int IsLast)
 {
@@ -464,7 +562,8 @@ ptr=CutFields[First].Start;
 while (ptr && (*ptr !='\0'))
 {
 	ptr=ExtractNextField(ptr, &Start, &End);
-	OutputField(Start,End,FALSE);
+	if (IsLast && (*ptr=='\0')) OutputField(Start,End,TRUE);
+	else OutputField(Start,End,FALSE);
 	if (*ptr !='\0') ptr++;
 }
 
@@ -508,6 +607,7 @@ while (*ptr != '\0')
 	}
 }
 
+//if there's still a field in hand, output that
 if (Start > -1) OutputCutField(FCount,CutFields,Start,TRUE);
 
 putchar('\n');
