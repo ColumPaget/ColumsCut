@@ -755,6 +755,7 @@ while (Tempstr)
 	StripTrailingWhitespace(Tempstr);
 	if (Flags & FLAG_FIELDS) OutputFields(CutFields,FieldSpec,Tempstr);
 	else if (Flags & FLAG_BYTES) OutputBytes(Tempstr, CutFields);
+	else if (Flags & FLAG_CHARS) OutputBytes(Tempstr, CutFields);
 
 if (Flags & FLAG_ZERO_TERM) Tempstr=FILEReadLine(Tempstr,InF,'\0');
 else Tempstr=FILEReadLine(Tempstr,InF,'\n');
