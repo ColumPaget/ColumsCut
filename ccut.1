@@ -50,6 +50,10 @@ do not print lines not containing delimiters
 use string as the output delimiter the default is to use the input delimiter
 
 .TP
+\fB --utf8\fP
+honor UTF-8 unicode encoding on input. This causes the -c and -b options to treat unicode strings as a single character (arguably -b shouldn't, but --utf8 overrides it)
+
+.TP
 \fB-V, --vars=NAMES\fP
 print out bash commands to set variables using the supplied list of names
 

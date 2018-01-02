@@ -12,6 +12,7 @@
 #define FLAG_SETVARS 512
 #define FLAG_ZERO_TERM 1024
 #define FLAG_COMPLEMENT 2048
+#define FLAG_UTF8 4096
 
 #define OPT_NAME  1
 #define OPT_SHORT 2
@@ -63,7 +64,8 @@ printf("  -q, --quote             honor quoting within target document using \\ 
 printf("  -Q, --quote-strip       honor quoting within target document, but strip quotes off output fields\n");
 //printf("  -r, --reverse           cut by counting chars/bytes/fields from end of line, not from start of line\n");
 printf("  -s, --only-delimited    do not print lines not containing delimiters\n");
-printf("  -V, --vars=NAMES   print out bash commands to set variables using the supplied list of names\n");
+printf("      --utf8              honor UTF-8 characters in input\n");
+printf("  -V, --vars=NAMES        print out bash commands to set variables using the supplied list of names\n");
 printf("  -T, --output-delimiter=[string] use string as the output delimiter\n");
 printf("                            the default is to use the input delimiter\n");
 printf("  -z, --zero-terminated   read input where lines are null terminated\n");
@@ -320,7 +322,8 @@ for (i=1; i < argc; i++)
 						}
 					break;
 
-
+					case 'u':
+						if (strcmp(ptr,"utf8")==0) Flags |= FLAG_UTF8;
 					break;
 
 					case 'z': 
@@ -700,6 +703,40 @@ int count;
 }
 
 
+int UTF8Position(const char *Line, int pos)
+{
+int count=0;
+const char *ptr;
+
+for (ptr=Line; *ptr !='\0'; )
+{
+	count++;
+	if (count > pos) break;
+	//if top bit is set then assume utf-8
+	if ((*ptr) & 128)
+	{
+	while ( ((*ptr) & 128) && (*ptr != '\0') ) ptr++;
+	}
+	else ptr++;
+}
+
+return(ptr-Line);
+}
+
+
+void OutputSubstr(const char *Line, int Start, int End)
+{
+int uStart, uEnd;
+
+if (Flags & FLAG_UTF8)
+{
+uStart=UTF8Position(Line, Start);
+uEnd=UTF8Position(Line, End);
+fwrite(Line+uStart,uEnd-uStart,1,stdout);
+}
+else fwrite(Line+Start,End-Start,1,stdout);
+}
+
 
 void OutputBytes(const char *Line, TCutField *Fields)
 {
@@ -721,12 +758,12 @@ while (*ptr != '\0')
 			else End=len;
 			if ((End < 0) || (End > len)) End=len;
 			if (Start < 0) Start=0;
-			fwrite(Line+Start,End-Start,1,stdout);
+			OutputSubstr(Line, Start, End);
 			Start=-1;
 		break;
 	
 		case ',':
-			if (Start > -1) fwrite(Line+Start,1,1,stdout);
+			if (Start > -1) OutputSubstr(Line, Start, 1);
 			Start=-1;
 			ptr++;
 		break;
@@ -737,7 +774,7 @@ while (*ptr != '\0')
 	}
 }
 
-if (Start > -1) fwrite(Line+Start,1,1,stdout);
+if (Start > -1) OutputSubstr(Line, Start, 1);
 
 putchar('\n');
 }

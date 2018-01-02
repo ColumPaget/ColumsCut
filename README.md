@@ -56,6 +56,9 @@ Mandatory arguments to long options are mandatory for short options too.
 *-T, --output-delimiter=[string]*
  : use string as the output delimiter the default is to use the input delimiter
 
+*--utf8*
+ : honor UTF-8 unicode characters on input. This causes unicode strings to be treated as single characters in both -c and -b opertations
+
 *-V, --vars=[list]*
  : print out bash commands to set variables using the supplied comma-separated list of names
 

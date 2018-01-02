@@ -83,7 +83,7 @@ return(actb_ptr);
 //maximum fields
 void GetMinMaxFields(const char *FieldSpec, int *MinField, int *MaxField)
 {
-char *ptr;
+const char *ptr;
 int val;
 
 *MinField=0;
@@ -92,7 +92,7 @@ if (StrLen(FieldSpec))
 {
 	ptr=FieldSpec;
 	while (isspace(*ptr)) ptr++;
-  if (isdigit(*ptr)) *MinField=strtol(FieldSpec, &ptr, 10);
+  if (isdigit(*ptr)) *MinField=strtol(FieldSpec, (char **) &ptr, 10);
 
 	//will be zero if Field spec didn't start with a number
   val=*MinField;
@@ -102,7 +102,7 @@ if (StrLen(FieldSpec))
     while ((! isdigit(*ptr)) && (*ptr !='\0'))  ptr++;
     if (! StrLen(ptr)) break;
 		if (! isdigit(*ptr)) break;
-    val=strtol(ptr,&ptr,10);
+    val=strtol(ptr,(char **) &ptr,10);
 		if (val > *MaxField) *MaxField=val;
   }
 }
