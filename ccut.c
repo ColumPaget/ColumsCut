@@ -1,3 +1,8 @@
+/*
+Copyright (c) 2015 Colum Paget <colums.projects@googlemail.com>
+* SPDX-License-Identifier: GPL-3.0
+*/
+
 #include "common.h"
 #include <ctype.h>
 
@@ -21,6 +26,8 @@
 #define FIELD_INCLUDED 1
 #define FIELD_LAST 2
 
+#define isUTF8ch(ch) (((ch) & 128) ? 1 : 0)
+
 char *Delim=NULL, *OutputDelim=NULL, *OutPath=NULL, *FieldSpec=NULL;
 int StartPos=0, EndPos=0, MaxField=0, DelimLen=0;
 
@@ -34,7 +41,7 @@ int VarCount=0;
 //this is defined in common.c
 //int Flags=0;
 
-char *Version="2.5";
+char *Version="2.6";
 
 typedef struct 
 {
@@ -73,8 +80,8 @@ printf("  -?  --help     display this help and exit\n");
 printf("  -v  --version  output version information and exit\n");
 printf("\n");
 printf("Use one, and only one of -b, -c or -f.  Each LIST is made up of one range, or many ranges separated by commas.\n");
-printf("THIS CUT DOES NOT SUPPORT WIDE CHARACTERS (yet). So '-c' and '-b' are equivalent\n\n");
-printf("Multiple characters can be specified as the input delimiter. The following quoted characters are recognized:\n");
+printf("THIS CUT DOES NOT SUPPORT 16-BIT WIDE CHARACTERS (yet). So '-c' and '-b' are equivalent. It does support UTF-8 characters via the --utf8 switch, but this overrides -b, so again -b and -c are equivalent\n\n");
+printf("Multiple characters can be specified as input delimiters. The following quoted characters are recognized:\n");
 printf("	\\e			escape\n");
 printf("	\\t			tab\n");
 printf("	\\r			carriage-return\n");
@@ -705,19 +712,40 @@ int count;
 
 int UTF8Position(const char *Line, int pos)
 {
-int count=0;
+int count=0, val;
 const char *ptr;
 
 for (ptr=Line; *ptr !='\0'; )
 {
 	count++;
 	if (count > pos) break;
-	//if top bit is set then assume utf-8
-	if ((*ptr) & 128)
+
+	//utf-8 uses the top bit set to distinguish from 7-bit ascii
+	//if the 1st 2 bits are set (128+64==192) then it's a 2-byte code
+	//if the 1st 3 bits are set (128+64+32==224) then it's a 3-byte code
+	//and if the 1st 4 bits, then a 4-byte code
+	val=*ptr & 224;
+	switch (val)
 	{
-	while ( ((*ptr) & 128) && (*ptr != '\0') ) ptr++;
+	case 192:
+	ptr++;
+	if (! isUTF8ch(*ptr)) fprintf(stderr, "top bit not set in expected utf code. Possible corrupt input\n");
+	break;
+
+	case 224:
+	if ((*ptr) & 16)
+	{
+	ptr++;
+	if (! isUTF8ch(*ptr)) fprintf(stderr, "top bit not set in expected utf code. Possible corrupt input\n");
 	}
-	else ptr++;
+	ptr++;
+	if (! isUTF8ch(*ptr)) fprintf(stderr, "top bit not set in expected utf code. Possible corrupt input\n");
+	ptr++;
+	if (! isUTF8ch(*ptr)) fprintf(stderr, "top bit not set in expected utf code. Possible corrupt input\n");
+	break;
+
+	}
+	ptr++;
 }
 
 return(ptr-Line);

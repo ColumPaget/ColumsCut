@@ -50,6 +50,9 @@ TestCut "-Q -d ',' -f 3,6" tests/cut.5 "field3,field6" "Cut honoring quotes but 
 TestCut "-d , -j -f 3" tests/cut.3 "field3" "Cut combining runs of the same delimiter"
 TestCut "-d ,;: -j -f 6" tests/cut.3 "field6" "Cut combining runs of different delimiters"
 
+TestCut "-c 13-30 --utf8" tests/utf8.txt "this Congress‘‘ in" "Cut UTF-8 input"
+
+
 eval `cat tests/cut.1 | ./ccut -f 7,5,2 -V arg1,arg2,arg3`
 if [ "$arg1" = "field7" -a "$arg2" = "field5" -a "$arg3" = "field2" ]
 then
