@@ -34,7 +34,7 @@ int VarCount=0;
 //this is defined in common.c
 //int Flags=0;
 
-char *Version="2.3";
+char *Version="2.4";
 
 typedef struct 
 {
