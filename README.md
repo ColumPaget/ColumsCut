@@ -10,6 +10,7 @@ ccut is a unix 'cut' command with a couple of extra features (and a couple of fe
 
 ccut supports:
 
+utf-8 input in -c mode
 multiple delimiters   
 treating runs of a delimiter as one delimiter   
 quoting using either quotes or backslash within the cut document   
