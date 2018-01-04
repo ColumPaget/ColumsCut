@@ -45,12 +45,14 @@ TestCut "-f 3,1,6,5" tests/cut.1 "field3	field1	field6	field5" "Cut multiple fie
 TestCut "-f 3,1,7,5" tests/cut.1 "field3	field1	field7	field5" "Cut multiple fields, rearranging their order, with final field included"
 TestCut "-T , -f 1-4" tests/cut.1 "field1,field2,field3,field4" "Cut with different delimiter for output than input"
 TestCut "-T , -d '\t;,' -f 1-4" tests/cut.2 "field1,field2,field3,field4" "Cut using multiple delimiters"
+TestCut "-T , -d '\t' -d ';,' -f 1-4" tests/cut.2 "field1,field2,field3,field4" "Cut using multiple -d options"
 TestCut "-T , -d '\t;,' -q -f 1-6" tests/cut.2 "field1,field2,field3,field4,field5\,field5.5,\"field6 with a comma , in it\"" "Cut honoring quotes"
 TestCut "-Q -d ',' -f 3,6" tests/cut.5 "field3,field6" "Cut honoring quotes but stripping them from output"
 TestCut "-d , -j -f 3" tests/cut.3 "field3" "Cut combining runs of the same delimiter"
 TestCut "-d ,;: -j -f 6" tests/cut.3 "field6" "Cut combining runs of different delimiters"
+TestCut "-D ,, -f 2" tests/cut.3 ",field3,field4" "Cut using a string as a delimiter rather than a single char"
 
-TestCut "-c 13-30 --utf8" tests/utf8.txt "this Congress‘‘ in" "Cut UTF-8 input"
+TestCut "-c 80-95 --utf8" tests/utf8.txt "Congress‘ infras" "Cut UTF-8 input"
 
 
 eval `cat tests/cut.1 | ./ccut -f 7,5,2 -V arg1,arg2,arg3`

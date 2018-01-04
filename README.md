@@ -11,9 +11,11 @@ ccut is a unix 'cut' command with a couple of extra features (and a couple of fe
 ccut supports:
 
 utf-8 input in -c mode
-multiple delimiters   
+multiple delimiters
+using a string as the delimiter rather than a character
 treating runs of a delimiter as one delimiter   
-quoting using either quotes or backslash within the cut document   
+quoting using either quotes or backslash within the cut document (for example, honor " quotes or \, in a csv)
+honoring quotes or backslash in a document but stripping them from output
 outputting fields in any specified order   
 outputting a different delimiter than those within the cut document   
 setting variables in the shell to values of cut fields   
@@ -34,7 +36,10 @@ Mandatory arguments to long options are mandatory for short options too.
  : select only these characters
 
 *-d, -t, --delimiter*=[list] 
- : list of delimiter characters. Default is just the 'tab' character.
+ : list of delimiter characters. Default is just the 'tab' character. Multiple instances of -t or -d are allowed
+
+*-D, --delimstr*=[delim] 
+ : use a string as a delimiter rather than a list of single character delimiter. Only one string delimiter can be used and it cannot be used in combination with -d or -t options
 
 *-f, --fields=LIST*
  : select only these fields;  also print any line without delimiter characters, unless the -s option is specified

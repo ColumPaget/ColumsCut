@@ -18,6 +18,7 @@ Copyright (c) 2015 Colum Paget <colums.projects@googlemail.com>
 #define FLAG_ZERO_TERM 1024
 #define FLAG_COMPLEMENT 2048
 #define FLAG_UTF8 4096
+#define FLAG_DELIMSTR 8192
 
 #define OPT_NAME  1
 #define OPT_SHORT 2
@@ -27,6 +28,9 @@ Copyright (c) 2015 Colum Paget <colums.projects@googlemail.com>
 #define FIELD_LAST 2
 
 #define isUTF8ch(ch) (((ch) & 128) ? 1 : 0)
+
+char *Version="2.7";
+
 
 char *Delim=NULL, *OutputDelim=NULL, *OutPath=NULL, *FieldSpec=NULL;
 int StartPos=0, EndPos=0, MaxField=0, DelimLen=0;
@@ -41,7 +45,6 @@ int VarCount=0;
 //this is defined in common.c
 //int Flags=0;
 
-char *Version="2.6";
 
 typedef struct 
 {
@@ -64,6 +67,7 @@ printf("Mandatory arguments to long options are mandatory for short options too.
 printf("  -b, --bytes=[list]      select only these bytes\n");
 printf("  -c, --characters=[list] select only these characters\n");
 printf("  -d, -t, --delimiter=[list] list of delimiter characters. Default is just the 'tab' character.\n");
+printf("  -D, --delimstr=[delim] use a string as a delimiter rather than a list of single-byte ones. Only one string delimiter can be used and it cannot be used in combination with -d or -t options\n");
 printf("  -f, --fields=LIST       select only these fields;  also print any line without delimiter characters, unless the -s option is specified\n");
 printf("      --complement        complement the set of selected bytes, characters or fields\n");
 printf("  -j, --join-delims       combine runs of delimters and treat them as one delimiter\n");
@@ -178,6 +182,7 @@ TCutField *ParseCommandLine(int argc, char *argv[])
 {
 int i, State=OPT_NAME;
 char *VarNamesArg=NULL, *ptr, *arg;
+char *Tempstr=NULL;
 TCutField *CutFields=NULL;
 int val, fcount=0;
 
@@ -240,7 +245,17 @@ for (i=1; i < argc; i++)
 
 				case 'd':
 				case 't':
-					ParseCommandValue(argc, argv, ++i, 0, &Delim);
+						ParseCommandValue(argc, argv, ++i, 0, &Tempstr);
+						Delim=CatStr(Delim, Tempstr);
+				break;
+
+				case 'D':
+					if (StrLen(Delim) !=0) fprintf(stderr,"WARN: ignoring -D option, as delimiter set by previous option. Only one string delimiter is allowed and cannot be combined with -d or -t\n");
+					else 
+					{
+						ParseCommandValue(argc, argv, ++i, 0, &Delim);
+						Flags |= FLAG_DELIMSTR;
+					}
 				break;
 
 				case 'T':
@@ -250,7 +265,7 @@ for (i=1; i < argc; i++)
 				case 'z': Flags |= FLAG_ZERO_TERM; break;
 
 				default:
-					printf("ERROR: unknown short option '-%c'\n",*ptr);
+					fprintf(stderr,"ERROR: unknown short option '-%c'\n",*ptr);
 				case '?':
 					DisplayHelp();
 				break;
@@ -287,7 +302,20 @@ for (i=1; i < argc; i++)
 					break;
 
 					case 'd':
-					if (strcmp(ptr,"delimiter")==0) ParseCommandValue(argc, argv, ++i, 0, &Delim);
+					if (strcmp(ptr,"delimiter")==0) 
+					{
+						ParseCommandValue(argc, argv, ++i, 0, &Tempstr);
+						Delim=CatStr(Delim, Tempstr);
+					}
+				else if (strcmp(ptr, "delimstr")==0)
+				{
+					if (StrLen(Delim) !=0) fprintf(stderr,"WARN: ignoring --delimstr option, as delimiter set by previous option. Only one string delimiter is allowed and cannot be combined with -d or -t\n");
+					else 
+					{
+						ParseCommandValue(argc, argv, ++i, 0, &Delim);
+						Flags |= FLAG_DELIMSTR;
+					}
+				}
 					break;
 
 					case 'f':
@@ -298,6 +326,7 @@ for (i=1; i < argc; i++)
 							GetMinMaxFields(FieldSpec, &val, &MaxField);
 						}
 					break;
+
 
 					case 'o':
 						if (strcmp(ptr, "only-delimited")==0) Flags |= FLAG_SUPPRESS;
@@ -338,7 +367,7 @@ for (i=1; i < argc; i++)
 					break;
 
 					default:
-					printf("ERROR: unknown long option '--%s'\n",ptr);
+					fprintf(stderr,"ERROR: unknown long option '--%s'\n",ptr);
 					case 'h':
 						if (strcmp(ptr,"help")==0) DisplayHelp();
 					break;
@@ -369,11 +398,29 @@ FilePaths[fcount]=NULL;
 if (Flags & FLAG_SETVARS) SetupVarNames(CutFields, MaxField, VarNamesArg);
 
 
+Destroy(Tempstr);
 Destroy(VarNamesArg);
 
 return(CutFields);
 }
 
+
+int isDelimeter(const char **Chars)
+{
+//end of string is obviously a delimiter
+if (**Chars=='\0') return(TRUE);
+if (Flags & FLAG_DELIMSTR)
+{
+	if (strncmp(Delim, *Chars, DelimLen)==0) 
+	{
+		*Chars+=(DelimLen -1);
+		return(TRUE);
+	}
+}
+else if (memchr(Delim,**Chars,DelimLen)) return(TRUE);
+
+return(FALSE);
+}
 
 
 
@@ -406,7 +453,7 @@ for (ptr=fstart; /* we have to handle '\0' */ ; ptr++)
 	}
 
 
-	if ((*ptr=='\0') || memchr(Delim,*ptr,DelimLen))
+	if (isDelimeter(&ptr))
 	{
 		*Start=fstart;
 		*End=ptr; //including delim
@@ -440,7 +487,7 @@ while (fcount < MaxField)
 
 	if (Flags & FLAG_COMBINE_DELIMS)
 	{
-		while (memchr(Delim,*ptr,DelimLen)) ptr++;
+		while (isDelimeter(&ptr)) ptr++;
 	}
 }
 
@@ -450,10 +497,10 @@ while (fcount < MaxField)
 for (; *ptr !='\0' ; ptr++)
 {
 	//if current character is one of the delimiters
-	if (memchr(Delim,*ptr,DelimLen)) fcount++;
+	if (isDelimeter(&ptr)) fcount++;
 	if (Flags & FLAG_COMBINE_DELIMS)
 	{
-		while (memchr(Delim,*ptr,DelimLen)) ptr++;
+		while (isDelimeter(&ptr)) ptr++;
 	}
 }
 
@@ -513,10 +560,16 @@ if (start)
 	}
 	else
 	{
-		fwrite(start,ptr-start,1,stdout);
+		//messy calcluation. We returned the string including delimiter. We can output this by writing end-start bytes
+		//but this clips the delimiter off. If we have a string rather than a character as the delimiter though, then it
+		//only clips off the last character of the delimiter. So now we take the DelimLen from end (or 'ptr' in this case)
+		//but now we have taken off one byte too many, so must add one to ptr.
+		if (Flags & FLAG_DELIMSTR) fwrite(start,ptr +1 - DelimLen - start,1,stdout);
+		else fwrite(start,ptr-start,1,stdout);
 		if (! IsLast)
 		{
 		if (OutputDelim) fputs(OutputDelim, stdout);
+		else if (Flags & FLAG_DELIMSTR) fputs(Delim, stdout);
 		else fputc(delim, stdout);
 		}
 	}
@@ -843,8 +896,12 @@ if (FilePaths)
 	for (i=0; FilePaths[i] != NULL; i++)
 	{
 		InF=fopen(FilePaths[i],"r");
-		if (InF) ProcessInput(InF, CutFields);
-		fclose(InF);
+		if (InF) 
+		{
+			ProcessInput(InF, CutFields);
+			fclose(InF);
+		}
+		else fprintf(stderr, "ERROR: Failed to open [%s]\n",FilePaths[i]);
 	}
 }
 else ProcessInput(stdin, CutFields);

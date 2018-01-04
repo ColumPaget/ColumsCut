@@ -18,6 +18,7 @@ extern int Flags;
 
 char *CopyStrLen(char *Dest, const char *Src, size_t len);
 char *CopyStr(char *Dest, const char *Src);
+char *CatStr(char *Dest, const char *Src);
 char *AddCharToBuffer(char *Dest, size_t DestLen, char Char);
 char *DeQuoteStr(char *Buffer, const char *Line);
 
