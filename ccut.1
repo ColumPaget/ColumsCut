@@ -22,6 +22,10 @@ select only these characters
 list of delimiter characters. Default is just the \(aqtab\(aq character.
 
 .TP
+\fB-e\fP
+list of delimiter characters, but allowing quoted values like in 'echo -e'.
+
+.TP
 \fB-D, --delimstr\fP=[delim]
 use a string as a delimiter rather than a list of single character delimiter. Only one string delimiter can be used and it cannot be used in combination with -d or -t options
 
@@ -77,17 +81,21 @@ output version information and exit
 Use one, and only one of -b, -c or -f.  Each LIST is made up of one range, or many ranges separated by commas.
 THIS CUT DOES NOT SUPPORT WIDE CHARACTERS (yet). So \(aq-c\(aq and \(aq-b\(aq are equivalent
 .P
-Multiple characters can be specified as the input delimiter. The following quoted characters are recognized:
+Multiple characters can be specified as the input delimiter. With \(aq-d\(aq or \(aq-e\(aq they will be treated as multiple indpendant delimiters. With \(aq-D\(aq they will be treated as a single string delimiter.
 
+If \(aq-e\(aq option is used rather than \(aq-d\(aq then the following quoted characters are recognized:
 .nf
+        \\              backslash
+        \\e               escape
+        \\t               tab
+        \\r               carriage\-return
+        \\n               newline
+        \\xnn             where 'nn' is a two\-digit hex\-code
 
-        e                      escape
-        t                      tab
-        r                      carriage\-return
-        n                      newline
-        xnn            where 'nn' is a two\-digit hex\-code
 .fi
 .ad b
+
+You will probably need to protect such quoted characters from the shell using quotes, or it may replace the '\' character, turning, for example, '\n' into just 'n'.
 
 .P
 Selected input is written in the SPECIFIED ORDER (unlike gnu cut), and fields can be output multiple times.
@@ -103,6 +111,7 @@ Each range is one of:
   \-M    from first to M'th (included) byte, character or field
 .fi
 .ad b
+reversed ranges (e.g. 5-2) are supported
 
 .P
 The "-V" or "--vars" option allows a comma-separated list of variable names to be supplied. Cut will then match output fields to those variable names and print out commands to set those variables in a borne-style shell. This can then be used with the "eval" command to set variables in the shell.

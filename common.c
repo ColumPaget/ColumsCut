@@ -127,7 +127,12 @@ if (pos >= argc)
 }
 
 Flags |= Flag;
-if (String) *String=DeQuoteStr(*String,argv[pos]);
+if (String) 
+{
+	if (Flag & FLAG_QDELIM) *String=DeQuoteStr(*String,argv[pos]);
+	else *String=CopyStr(*String,argv[pos]);
+}
+
 }
 
 

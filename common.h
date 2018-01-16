@@ -9,8 +9,25 @@ extern int Flags;
 
 #define Destroy(x) (x ? free(x) : 0)
 
+
 #define FALSE 0
 #define TRUE  1
+
+#define FLAG_CHARS  1
+#define FLAG_BYTES  2
+#define FLAG_FIELDS 8
+#define FLAG_REVERSE  16
+#define FLAG_SUPPRESS 32
+#define FLAG_QUOTED   64
+#define FLAG_QUOTE_STRIP 128
+#define FLAG_COMBINE_DELIMS 256
+#define FLAG_SETVARS 512
+#define FLAG_ZERO_TERM 1024
+#define FLAG_COMPLEMENT 2048
+#define FLAG_UTF8 4096
+#define FLAG_DELIMSTR 8192
+#define FLAG_QDELIM 16384
+
 
 #define StrLen(str) ( str ? strlen(str) : 0 )
 #define StrValid(str) ( (str && (*(const char *) str != '\0')) ? TRUE : FALSE )

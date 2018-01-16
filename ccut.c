@@ -6,19 +6,6 @@ Copyright (c) 2015 Colum Paget <colums.projects@googlemail.com>
 #include "common.h"
 #include <ctype.h>
 
-#define FLAG_CHARS  1
-#define FLAG_BYTES  2
-#define FLAG_FIELDS 8
-#define FLAG_REVERSE  16
-#define FLAG_SUPPRESS 32
-#define FLAG_QUOTED   64
-#define FLAG_QUOTE_STRIP 128
-#define FLAG_COMBINE_DELIMS 256
-#define FLAG_SETVARS 512
-#define FLAG_ZERO_TERM 1024
-#define FLAG_COMPLEMENT 2048
-#define FLAG_UTF8 4096
-#define FLAG_DELIMSTR 8192
 
 #define OPT_NAME  1
 #define OPT_SHORT 2
@@ -33,7 +20,7 @@ Copyright (c) 2015 Colum Paget <colums.projects@googlemail.com>
 //UTF-8 chars always have the top bit (128) set
 #define isUTF8ch(ch) (((ch) & 128) ? 1 : 0)
 
-char *Version="2.8";
+char *Version="2.9";
 
 
 char *Delim=NULL, *OutputDelim=NULL, *OutPath=NULL, *FieldSpec=NULL;
@@ -72,6 +59,7 @@ printf("  -b, --bytes=[list]      select only these bytes\n");
 printf("  -c, --characters=[list] select only these characters\n");
 printf("  -d, -t, --delimiter=[list] list of delimiter characters. Default is just the 'tab' character.\n");
 printf("  -D, --delimstr=[delim] use a string as a delimiter rather than a list of single-byte ones. Only one string delimiter can be used and it cannot be used in combination with -d or -t options\n");
+printf("  -e  list of delimiter characters, but allowing quoted values like in 'echo -e'. See 'Quoted Delimiters' below\n");
 printf("  -f, --fields=LIST       select only these fields;  also print any line without delimiter characters, unless the -s option is specified\n");
 printf("      --complement        complement the set of selected bytes, characters or fields\n");
 printf("  -j, --join-delims       combine runs of delimters and treat them as one delimiter\n");
@@ -87,14 +75,19 @@ printf("  -z, --zero-terminated   read input where lines are null terminated\n")
 printf("  -?  --help     display this help and exit\n");
 printf("  -v  --version  output version information and exit\n");
 printf("\n");
-printf("Use one, and only one of -b, -c or -f.  Each LIST is made up of one range, or many ranges separated by commas.\n");
-printf("THIS CUT DOES NOT SUPPORT 16-BIT WIDE CHARACTERS (yet). So '-c' and '-b' are equivalent. It does support UTF-8 characters via the --utf8 switch, but this overrides -b, so again -b and -c are equivalent\n\n");
-printf("Multiple characters can be specified as input delimiters. The following quoted characters are recognized:\n");
-printf("	\\e			escape\n");
-printf("	\\t			tab\n");
-printf("	\\r			carriage-return\n");
-printf("	\\n			newline\n");
+printf("Use one, and only one of -b, -c or -f.  Each LIST is made up of one range, or many ranges separated by commas.\n\n");
+printf("-d is used, then all characters in the next argument are treated as individual delimiters. If -D is used, then they are treated as a single string delimiter.\n\n");
+printf("Character set support: THIS CUT DOES NOT SUPPORT 16-BIT WIDE CHARACTERS (yet). So '-c' and '-b' are equivalent. It does support UTF-8 characters via the --utf8 switch, but this overrides -b, so again -b and -c are equivalent\n\n");
+
+
+printf("Quoted Delimiters: If the '-e' option is used rather than '-d' then the following quoted characters are recognized:\n");
+printf("	\\\\		backslash\n");
+printf("	\\e		escape\n");
+printf("	\\t		tab\n");
+printf("	\\r		carriage-return\n");
+printf("	\\n		newline\n");
 printf("	\\xnn		where 'nn' is a two-digit hex-code\n\n");
+printf("You will probably need to protect such quoted characters from the shell using quotes, or it may replace the '\\' character, turning, for example, '\\n' into just 'n'\n\n");
 
 printf("Selected input is written in the SPECIFIED ORDER (unlike gnu cut), and fields can be output multiple times.\n");
 printf("However, order has no meaning when cut is run with --complement, so then fields are output in the order they are encountered in the data\n");
@@ -103,7 +96,7 @@ printf("  N     N'th byte, character or field, counted from 1\n");
 printf("  N-    from N'th byte, character or field, to end of line\n");
 printf("  N-M   from N'th to M'th (included) byte, character or field\n");
 printf("  -M    from first to M'th (included) byte, character or field\n");
-printf("\n");
+printf("reversed ranges (e.g. 5-2) are supported\n\n");
 printf("With no FILE, or when FILE is -, read standard input.\n\n");
 
 printf("The '-V' or '--vars' option allows a comma-separated list of variable names to be supplied. Cut will then match output fields to those variable names and print out commands to set those variables in a borne-style shell. This can then be used with the 'eval' command, like so:\n\n");
@@ -111,7 +104,8 @@ printf("	eval `echo apples,oranges,pears,lemons,lime | ccut -d , -f 2,4,5,1,3 -V
 printf("This will result in the variables being set in the shell, citrus1=oranges, citrus2=lemons, citrus3=limes, poma1=apples and poma2=pears\n");
 
 printf("\n");
-printf("Report bugs to colums.projects@gmail.com\n");
+printf("Report bugs to colums.projects@gmail.com, or at https://github.com/ColumPaget/ColumsCust\n");
+printf("Thanks to https://github.com/larrypl for bug reports\n");
 
 exit(0);
 }
@@ -245,6 +239,11 @@ for (i=1; i < argc; i++)
 					Flags |= FLAG_FIELDS;
 					ParseCommandValue(argc, argv, ++i, 0, &FieldSpec);
 					GetMinMaxFields(FieldSpec, &val, &MaxField);
+				break;
+
+				case 'e':
+						ParseCommandValue(argc, argv, ++i, FLAG_QDELIM, &Tempstr);
+						Delim=CatStr(Delim, Tempstr);
 				break;
 
 				case 'd':
