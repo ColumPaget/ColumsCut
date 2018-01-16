@@ -27,9 +27,13 @@ Copyright (c) 2015 Colum Paget <colums.projects@googlemail.com>
 #define FIELD_INCLUDED 1
 #define FIELD_LAST 2
 
+#define DELIM_PREFIX 1
+#define DELIM_POSTFIX 2
+
+//UTF-8 chars always have the top bit (128) set
 #define isUTF8ch(ch) (((ch) & 128) ? 1 : 0)
 
-char *Version="2.7";
+char *Version="2.8";
 
 
 char *Delim=NULL, *OutputDelim=NULL, *OutPath=NULL, *FieldSpec=NULL;
@@ -512,7 +516,7 @@ return(fcount);
 
 
 
-void OutputField(const char *start, const char *end, int IsLast)
+void OutputField(const char *start, const char *end, int DelimType)
 {
 const char *ptr;
 char delim;
@@ -530,7 +534,8 @@ if (start)
 	//we try to use the delimiter that we found, because 
 	//ccut uses multiple delimiters, so we use the one that's
 	//been encountered as the output delimiter too
-	delim=*ptr;
+	if (DelimType==DELIM_PREFIX) delim=*(start-1);
+	else delim=*ptr;
 
 	//the last field will likely have no delimiter. However, because we can rearrange
 	//delimiters it might need one in the output Thus we use the first delimiter in
@@ -560,13 +565,23 @@ if (start)
 	}
 	else
 	{
+		//if we're outputing fields in reverse order than we copy a delimiter to the start
+		if (DelimType==DELIM_PREFIX)
+		{
+		if (OutputDelim) fputs(OutputDelim, stdout);
+		else if (Flags & FLAG_DELIMSTR) fputs(Delim, stdout);
+		else fputc(delim, stdout);
+		}
+
 		//messy calcluation. We returned the string including delimiter. We can output this by writing end-start bytes
 		//but this clips the delimiter off. If we have a string rather than a character as the delimiter though, then it
 		//only clips off the last character of the delimiter. So now we take the DelimLen from end (or 'ptr' in this case)
 		//but now we have taken off one byte too many, so must add one to ptr.
 		if (Flags & FLAG_DELIMSTR) fwrite(start,ptr +1 - DelimLen - start,1,stdout);
 		else fwrite(start,ptr-start,1,stdout);
-		if (! IsLast)
+
+		//if we're outputing fields in normal order than we copy a delimiter to the end
+		if (DelimType==DELIM_POSTFIX)
 		{
 		if (OutputDelim) fputs(OutputDelim, stdout);
 		else if (Flags & FLAG_DELIMSTR) fputs(Delim, stdout);
@@ -580,7 +595,7 @@ OutputNo++;
 
 
 
-void OutputCutField(int FCount, TCutField *CutFields, int FieldNo, int IsLast)
+void OutputCutField(int FCount, TCutField *CutFields, int FieldNo, int DelimType)
 {
 
 if ((FieldNo > 0) && (FieldNo <= FCount))
@@ -588,7 +603,7 @@ if ((FieldNo > 0) && (FieldNo <= FCount))
 //	if (Flags & FLAG_REVERSE) FieldNo=FCount+1-FieldNo;
 	FieldNo--; //Fields are 1 based, so make zero based
 
-	OutputField(CutFields[FieldNo].Start, CutFields[FieldNo].End, IsLast);
+	OutputField(CutFields[FieldNo].Start, CutFields[FieldNo].End, DelimType);
 }
 
 }
@@ -599,13 +614,26 @@ void OutputFieldRange(int FCount, TCutField *CutFields,int Start, int End, int I
 {
 int i;
 
-if (Start < 1) Start=1;
-for (i=Start; i < End; i++) 
+	if (Start < 1) Start=1;
+
+//reverse order! Except if End==0 that means no end position has been given, like 2- which means 'to the end' 
+if (Start > End)
 {
-	if (IsLast && (i == End)) OutputCutField(FCount,CutFields,i, TRUE);
-	else OutputCutField(FCount,CutFields,i, FALSE);
+	for (i=Start; i >= End; i--) 
+	{
+		if (IsLast && (i == Start)) OutputCutField(FCount,CutFields,i, FALSE);
+		else OutputCutField(FCount,CutFields,i, DELIM_PREFIX);
+	}
 }
-OutputCutField(FCount,CutFields,i, IsLast);
+else
+{
+	for (i=Start; i <= End; i++) 
+	{
+		if (IsLast && (i == End)) OutputCutField(FCount,CutFields,i, FALSE);
+		else OutputCutField(FCount,CutFields,i, DELIM_POSTFIX);
+	}
+}
+
 }
 
 
@@ -625,8 +653,8 @@ ptr=CutFields[First].Start;
 while (ptr && (*ptr !='\0'))
 {
 	ptr=ExtractNextField(ptr, &Start, &End);
-	if (IsLast && (*ptr=='\0')) OutputField(Start,End,TRUE);
-	else OutputField(Start,End,FALSE);
+	if (IsLast && (*ptr=='\0')) OutputField(Start,End,FALSE);
+	else OutputField(Start,End,DELIM_POSTFIX);
 	if (*ptr !='\0') ptr++;
 }
 
@@ -659,7 +687,7 @@ while (*ptr != '\0')
 		break;
 	
 		case ',':
-		if (Start > -1) OutputCutField(FCount,CutFields,Start,FALSE);
+		if (Start > -1) OutputCutField(FCount,CutFields,Start,DELIM_POSTFIX);
 		Start=-1;
 		ptr++;
 		break;
@@ -671,7 +699,7 @@ while (*ptr != '\0')
 }
 
 //if there's still a field in hand, output that
-if (Start > -1) OutputCutField(FCount,CutFields,Start,TRUE);
+if (Start > -1) OutputCutField(FCount,CutFields,Start,FALSE);
 
 putchar('\n');
 }
@@ -707,7 +735,17 @@ while (*ptr != '\0')
 
 
 		if (End==-1) CutFields[Start].Flags=FIELD_INCLUDED | FIELD_LAST;
-		else for (i=Start; i <= End; i++) CutFields[i].Flags=FIELD_INCLUDED;
+		else 
+		{
+			if (Start > End)
+			{
+				i=Start;
+				Start=End;
+				End=i;
+			}
+
+			for (i=Start; i <= End; i++) CutFields[i].Flags=FIELD_INCLUDED;
+		}
 		Start=-1;
 		break;
 	
@@ -733,10 +771,14 @@ while (*ptr !='\0')
 	ptr=ExtractNextField(ptr, &fstart, &fend);
 	if (i < MaxField)
 	{
-		if (! (CutFields[i].Flags & FIELD_INCLUDED)) OutputField(fstart,fend,FALSE);
+		if (! (CutFields[i].Flags & FIELD_INCLUDED)) 
+		{
+			OutputField(fstart,fend,DELIM_POSTFIX);
+		}
 		if (CutFields[i].Flags & FIELD_LAST) break;
 	}
-	else OutputField(fstart,fend,FALSE);
+	else OutputField(fstart,fend,DELIM_POSTFIX);
+
 	i++;
 	if (*ptr !='\0') ptr++;
 }
