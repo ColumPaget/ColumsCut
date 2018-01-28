@@ -533,7 +533,7 @@ if (start)
 	//we try to use the delimiter that we found, because 
 	//ccut uses multiple delimiters, so we use the one that's
 	//been encountered as the output delimiter too
-	if (DelimType==DELIM_PREFIX) delim=*(start-1);
+	if (DelimType & DELIM_PREFIX) delim=*(start-1);
 	else delim=*ptr;
 
 	//the last field will likely have no delimiter. However, because we can rearrange
@@ -565,7 +565,7 @@ if (start)
 	else
 	{
 		//if we're outputing fields in reverse order than we copy a delimiter to the start
-		if (DelimType==DELIM_PREFIX)
+		if (DelimType & DELIM_PREFIX)
 		{
 		if (OutputDelim) fputs(OutputDelim, stdout);
 		else if (Flags & FLAG_DELIMSTR) fputs(Delim, stdout);
@@ -580,7 +580,7 @@ if (start)
 		else fwrite(start,ptr-start,1,stdout);
 
 		//if we're outputing fields in normal order than we copy a delimiter to the end
-		if (DelimType==DELIM_POSTFIX)
+		if (DelimType & DELIM_POSTFIX)
 		{
 		if (OutputDelim) fputs(OutputDelim, stdout);
 		else if (Flags & FLAG_DELIMSTR) fputs(Delim, stdout);
@@ -611,7 +611,7 @@ if ((FieldNo > 0) && (FieldNo <= FCount))
 //Output fields in range, like 'cut -f 2-5'
 void OutputFieldRange(int FCount, TCutField *CutFields,int Start, int End, int IsLast)
 {
-int i;
+int i, DelimFlags;
 
 	if (Start < 1) Start=1;
 
@@ -620,7 +620,8 @@ if (Start > End)
 {
 	for (i=Start; i >= End; i--) 
 	{
-		if (IsLast && (i == Start)) OutputCutField(FCount,CutFields,i, FALSE);
+		if (i == Start) OutputCutField(FCount,CutFields,i, FALSE);
+		else if ((i == End) && (! IsLast)) OutputCutField(FCount, CutFields, i, DELIM_PREFIX | DELIM_POSTFIX);
 		else OutputCutField(FCount,CutFields,i, DELIM_PREFIX);
 	}
 }
