@@ -16,6 +16,7 @@ Copyright (c) 2015 Colum Paget <colums.projects@googlemail.com>
 
 #define DELIM_PREFIX 1
 #define DELIM_POSTFIX 2
+#define DELIM_ISLAST 4
 
 //UTF-8 chars always have the top bit (128) set
 #define isUTF8ch(ch) (((ch) & 128) ? 1 : 0)
@@ -515,7 +516,7 @@ return(fcount);
 
 
 
-void OutputField(const char *start, const char *end, int DelimType)
+void OutputField(const char *start, const char *end, int DelimFlags)
 {
 const char *ptr;
 char delim;
@@ -533,7 +534,7 @@ if (start)
 	//we try to use the delimiter that we found, because 
 	//ccut uses multiple delimiters, so we use the one that's
 	//been encountered as the output delimiter too
-	if (DelimType & DELIM_PREFIX) delim=*(start-1);
+	if (DelimFlags & DELIM_PREFIX) delim=*(start-1);
 	else delim=*ptr;
 
 	//the last field will likely have no delimiter. However, because we can rearrange
@@ -565,7 +566,7 @@ if (start)
 	else
 	{
 		//if we're outputing fields in reverse order than we copy a delimiter to the start
-		if (DelimType & DELIM_PREFIX)
+		if (DelimFlags & DELIM_PREFIX)
 		{
 		if (OutputDelim) fputs(OutputDelim, stdout);
 		else if (Flags & FLAG_DELIMSTR) fputs(Delim, stdout);
@@ -576,16 +577,20 @@ if (start)
 		//but this clips the delimiter off. If we have a string rather than a character as the delimiter though, then it
 		//only clips off the last character of the delimiter. So now we take the DelimLen from end (or 'ptr' in this case)
 		//but now we have taken off one byte too many, so must add one to ptr.
-		if (Flags & FLAG_DELIMSTR) fwrite(start,ptr +1 - DelimLen - start,1,stdout);
+		if (Flags & FLAG_DELIMSTR) 
+		{
+				if (*ptr != '\0') fwrite(start,ptr +1 - DelimLen - start,1,stdout);
+				else fwrite(start,ptr +1 - start,1,stdout);
+		}
 		else fwrite(start,ptr-start,1,stdout);
 
-		//if we're outputing fields in normal order than we copy a delimiter to the end
-		if (DelimType & DELIM_POSTFIX)
-		{
-		if (OutputDelim) fputs(OutputDelim, stdout);
-		else if (Flags & FLAG_DELIMSTR) fputs(Delim, stdout);
-		else fputc(delim, stdout);
-		}
+			//if we're outputing fields in normal order than we copy a delimiter to the end
+			if (DelimFlags & DELIM_POSTFIX)
+			{
+			if (OutputDelim) fputs(OutputDelim, stdout);
+			else if (Flags & FLAG_DELIMSTR) fputs(Delim, stdout);
+			else fputc(delim, stdout);
+			}
 	}
 }
 
@@ -611,7 +616,7 @@ if ((FieldNo > 0) && (FieldNo <= FCount))
 //Output fields in range, like 'cut -f 2-5'
 void OutputFieldRange(int FCount, TCutField *CutFields,int Start, int End, int IsLast)
 {
-int i, DelimFlags;
+int i;
 
 	if (Start < 1) Start=1;
 
