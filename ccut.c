@@ -16,12 +16,11 @@ Copyright (c) 2015 Colum Paget <colums.projects@googlemail.com>
 
 #define DELIM_PREFIX 1
 #define DELIM_POSTFIX 2
-#define DELIM_ISLAST 4
 
 //UTF-8 chars always have the top bit (128) set
 #define isUTF8ch(ch) (((ch) & 128) ? 1 : 0)
 
-char *Version="2.9";
+char *Version="2.10";
 
 
 char *Delim=NULL, *OutputDelim=NULL, *OutPath=NULL, *FieldSpec=NULL;
@@ -263,7 +262,7 @@ for (i=1; i < argc; i++)
 				break;
 
 				case 'T':
-					ParseCommandValue(argc, argv, ++i, 0, &OutputDelim);
+					ParseCommandValue(argc, argv, ++i, FLAG_REPLACE_DELIM, &OutputDelim);
 				break;
 
 				case 'z': Flags |= FLAG_ZERO_TERM; break;
@@ -334,7 +333,7 @@ for (i=1; i < argc; i++)
 
 					case 'o':
 						if (strcmp(ptr, "only-delimited")==0) Flags |= FLAG_SUPPRESS;
-						if (strcmp(ptr, "output-delimiter")==0) ParseCommandValue(argc, argv, ++i, 0, &OutputDelim);
+						if (strcmp(ptr, "output-delimiter")==0) ParseCommandValue(argc, argv, ++i, FLAG_REPLACE_DELIM, &OutputDelim);
 					break;
 
 					case 'j':
@@ -394,8 +393,8 @@ DelimLen=StrLen(Delim);
 //NULL terminate FilePaths array
 if (FilePaths)
 {
-FilePaths=(char **) realloc(FilePaths, sizeof(char *) * (fcount + 1));
-FilePaths[fcount]=NULL;
+	FilePaths=(char **) realloc(FilePaths, sizeof(char *) * (fcount + 1));
+	FilePaths[fcount]=NULL;
 }
 
 
@@ -417,11 +416,16 @@ if (Flags & FLAG_DELIMSTR)
 {
 	if (strncmp(Delim, *Chars, DelimLen)==0) 
 	{
+		if (! (Flags & FLAG_REPLACE_DELIM)) OutputDelim=CopyStrLen(OutputDelim, *Chars, DelimLen);
 		*Chars+=(DelimLen -1);
 		return(TRUE);
 	}
 }
-else if (memchr(Delim,**Chars,DelimLen)) return(TRUE);
+else if (memchr(Delim,**Chars,DelimLen)) 
+{
+	if (! (Flags & FLAG_REPLACE_DELIM)) OutputDelim=CopyStrLen(OutputDelim, *Chars, 1);
+	return(TRUE);
+}
 
 return(FALSE);
 }
@@ -568,7 +572,7 @@ if (start)
 		//if we're outputing fields in reverse order than we copy a delimiter to the start
 		if (DelimFlags & DELIM_PREFIX)
 		{
-		if (OutputDelim) fputs(OutputDelim, stdout);
+		if (Flags & FLAG_REPLACE_DELIM) fputs(OutputDelim, stdout);
 		else if (Flags & FLAG_DELIMSTR) fputs(Delim, stdout);
 		else fputc(delim, stdout);
 		}
@@ -577,37 +581,39 @@ if (start)
 		//but this clips the delimiter off. If we have a string rather than a character as the delimiter though, then it
 		//only clips off the last character of the delimiter. So now we take the DelimLen from end (or 'ptr' in this case)
 		//but now we have taken off one byte too many, so must add one to ptr.
-		if (Flags & FLAG_DELIMSTR) 
-		{
-				if (*ptr != '\0') fwrite(start,ptr +1 - DelimLen - start,1,stdout);
-				else fwrite(start,ptr +1 - start,1,stdout);
-		}
-		else fwrite(start,ptr-start,1,stdout);
+if (Flags & FLAG_DELIMSTR) 
+{
+   if (*ptr != '\0') fwrite(start,ptr +1 - DelimLen - start,1,stdout);
+   else fwrite(start,ptr +1 - start,1,stdout);
+}
+else fwrite(start,ptr-start,1,stdout);
 
-			//if we're outputing fields in normal order than we copy a delimiter to the end
-			if (DelimFlags & DELIM_POSTFIX)
-			{
-			if (OutputDelim) fputs(OutputDelim, stdout);
-			else if (Flags & FLAG_DELIMSTR) fputs(Delim, stdout);
-			else fputc(delim, stdout);
-			}
+		//if we're outputing fields in normal order than we copy a delimiter to the end
+		if (DelimFlags & DELIM_POSTFIX)
+		{
+		if (Flags & FLAG_REPLACE_DELIM) fputs(OutputDelim, stdout);
+		else if (Flags & FLAG_DELIMSTR) fputs(Delim, stdout);
+		else fputc(delim, stdout);
+		}
 	}
 }
+//Use the cached 'last delim' if the field doesn't exist
+else if (DelimFlags) fputs(OutputDelim, stdout);
 
 OutputNo++;
 }
 
 
 
-void OutputCutField(int FCount, TCutField *CutFields, int FieldNo, int DelimType)
+void OutputCutField(int FCount, TCutField *CutFields, int FieldNo, int DelimFlags)
 {
 
-if ((FieldNo > 0) && (FieldNo <= FCount))
+if (FieldNo > 0)
 {
 //	if (Flags & FLAG_REVERSE) FieldNo=FCount+1-FieldNo;
 	FieldNo--; //Fields are 1 based, so make zero based
 
-	OutputField(CutFields[FieldNo].Start, CutFields[FieldNo].End, DelimType);
+	OutputField(CutFields[FieldNo].Start, CutFields[FieldNo].End, DelimFlags);
 }
 
 }
@@ -625,8 +631,8 @@ if (Start > End)
 {
 	for (i=Start; i >= End; i--) 
 	{
-		if (i == Start) OutputCutField(FCount,CutFields,i, FALSE);
-		else if ((i == End) && (! IsLast)) OutputCutField(FCount, CutFields, i, DELIM_PREFIX | DELIM_POSTFIX);
+    if (i == Start) OutputCutField(FCount,CutFields,i, FALSE);
+    else if ((i == End) && (! IsLast)) OutputCutField(FCount, CutFields, i, DELIM_PREFIX | DELIM_POSTFIX);
 		else OutputCutField(FCount,CutFields,i, DELIM_PREFIX);
 	}
 }

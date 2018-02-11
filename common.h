@@ -25,9 +25,9 @@ extern int Flags;
 #define FLAG_ZERO_TERM 1024
 #define FLAG_COMPLEMENT 2048
 #define FLAG_UTF8 4096
-#define FLAG_DELIMSTR 8192
-#define FLAG_QDELIM 16384
-
+#define FLAG_DELIMSTR 8192 //string delimiter (instead of character)
+#define FLAG_QDELIM 16384  //handle quoted delimiter
+#define FLAG_REPLACE_DELIM 32768
 
 #define StrLen(str) ( str ? strlen(str) : 0 )
 #define StrValid(str) ( (str && (*(const char *) str != '\0')) ? TRUE : FALSE )
