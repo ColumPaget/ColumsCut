@@ -20,7 +20,7 @@ Copyright (c) 2015 Colum Paget <colums.projects@googlemail.com>
 //UTF-8 chars always have the top bit (128) set
 #define isUTF8ch(ch) (((ch) & 128) ? 1 : 0)
 
-char *Version="2.10";
+char *Version="2.11";
 
 
 char *Delim=NULL, *OutputDelim=NULL, *OutPath=NULL, *FieldSpec=NULL;
@@ -517,7 +517,13 @@ return(fcount);
 
 
 
-
+void OutputDelimiter(char FoundDelim)
+{
+		if (Flags & FLAG_REPLACE_DELIM) fputs(OutputDelim, stdout);
+		else if (Flags & FLAG_DELIMSTR) fputs(Delim, stdout);
+		else if (FoundDelim !=0) fputc(FoundDelim, stdout);
+		else if (StrValid(Delim)) fputc(*Delim, stdout);
+}
 
 
 void OutputField(const char *start, const char *end, int DelimFlags)
@@ -570,12 +576,7 @@ if (start)
 	else
 	{
 		//if we're outputing fields in reverse order than we copy a delimiter to the start
-		if (DelimFlags & DELIM_PREFIX)
-		{
-		if (Flags & FLAG_REPLACE_DELIM) fputs(OutputDelim, stdout);
-		else if (Flags & FLAG_DELIMSTR) fputs(Delim, stdout);
-		else fputc(delim, stdout);
-		}
+		if (DelimFlags & DELIM_PREFIX) OutputDelimiter(delim); 
 
 		//messy calcluation. We returned the string including delimiter. We can output this by writing end-start bytes
 		//but this clips the delimiter off. If we have a string rather than a character as the delimiter though, then it
@@ -589,16 +590,11 @@ if (Flags & FLAG_DELIMSTR)
 else fwrite(start,ptr-start,1,stdout);
 
 		//if we're outputing fields in normal order than we copy a delimiter to the end
-		if (DelimFlags & DELIM_POSTFIX)
-		{
-		if (Flags & FLAG_REPLACE_DELIM) fputs(OutputDelim, stdout);
-		else if (Flags & FLAG_DELIMSTR) fputs(Delim, stdout);
-		else fputc(delim, stdout);
-		}
+		if (DelimFlags & DELIM_POSTFIX) OutputDelimiter(delim); 
 	}
 }
 //Use the cached 'last delim' if the field doesn't exist
-else if (DelimFlags) fputs(OutputDelim, stdout);
+else if (DelimFlags) OutputDelimiter(0); 
 
 OutputNo++;
 }

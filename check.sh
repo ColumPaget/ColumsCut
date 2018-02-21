@@ -52,10 +52,10 @@ TestCut "-Q -d ',' -f 3,6" tests/cut.5 "field3,field6" "Cut honoring quotes but 
 TestCut "-d , -j -f 3" tests/cut.3 "field3" "Cut combining runs of the same delimiter"
 TestCut "-d ,;: -j -f 6" tests/cut.3 "field6" "Cut combining runs of different delimiters"
 TestCut "-D ,, -f 2" tests/cut.3 ",field3,field4" "Cut using a string as a delimiter rather than a single char"
-TestCut "-Q -d ',' -f 2,3,20" tests/cut.5 "field2,field3," "Cut with a non-existent field at the end"
-TestCut "-Q -d ',' -f 2,20,3" tests/cut.5 "field2,,field3" "Cut with a non-existent field in the middle"
-TestCut "-Q -d ',' -f 20,2,3" tests/cut.5 ",field2,field3" "Cut with a non-existent field at the start"
-TestCut "-Q -d ',' -f 2,3,10-15" tests/cut.5 "field2,field3,,,,,," "Cut with a range of non-existent fields"
+TestCut "-Q -d , -f 2,3,20" tests/cut.5 "field2,field3," "Cut with a non-existent field at the end"
+TestCut "-Q -d , -f 2,20,3" tests/cut.5 "field2,,field3" "Cut with a non-existent field in the middle"
+TestCut "-Q -d , -f 20,2,3" tests/cut.5 ",field2,field3" "Cut with a non-existent field at the start"
+TestCut "-Q -d , -f 2,3,10-15" tests/cut.5 "field2,field3,,,,,," "Cut with a range of non-existent fields"
 
 TestCut "-c 80-95 --utf8" tests/utf8.txt "Congress‘ infras" "Cut UTF-8 input"
 
