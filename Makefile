@@ -19,3 +19,6 @@ install:
 	cp ccut $(DESTDIR)$(PREFIX)/bin
 	mkdir -p $(DESTDIR)$(PREFIX)/share/man/man1
 	cp ccut.1 $(DESTDIR)$(PREFIX)/share/man/man1
+
+test: libUseful.so
+	-echo "No tests written yet"
