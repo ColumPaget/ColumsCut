@@ -41,6 +41,13 @@ Mandatory arguments to long options are mandatory for short options too.
 *-D, --delimstr*=[delim] 
  : use a string as a delimiter rather than a list of single character delimiter. Only one string delimiter can be used and it cannot be used in combination with -d or -t options
 
+*-e*
+ : list of delimiter characters, but allowing quoted values like in 'echo -e'. See 'Quoted Delimiters' below
+
+*-E*
+ :  like '-D' but allowing quoted values like in 'echo -e'. See 'Quoted Delimiters' below
+
+
 *-f, --fields=LIST*
  : select only these fields;  also print any line without delimiter characters, unless the -s option is specified
 
@@ -81,15 +88,6 @@ Mandatory arguments to long options are mandatory for short options too.
 Use one, and only one of -b, -c or -f.  Each LIST is made up of one range, or many ranges separated by commas.
 THIS CUT DOES NOT SUPPORT WIDE CHARACTERS (yet). So '-c' and '-b' are equivalent
 
-Multiple characters can be specified as the input delimiter. The following quoted characters are recognized:
-```
-        \e                      escape
-        \t                      tab
-        \r                      carriage-return
-        \n                      newline
-        \xnn            where 'nn' is a two-digit hex-code
-```
-
 Selected input is written in the SPECIFIED ORDER (unlike gnu cut), and fields can be output multiple times.
 However, order has no meaning when cut is run with --complement, so then fields are output in the order they are encountered in the data
 
@@ -102,6 +100,31 @@ Each range is one of:
 ```
 
 The '-V' or '--vars' option allows a comma-separated list of variable names to be supplied. Cut will then match output fields to those variable names and print out commands to set those variables in a borne-style shell. This can then be used with the 'eval' command to set variables in the shell.
+
+
+Multiple Delimiters and Delimiter Strings
+-----------------------------------------
+
+Multiple characters can be specified as the input delimiter when using '-d', so '-d :,' would use both colons and commas as delimiters
+
+String delimiters (a single multi-character delimiter) can be specified using '-D'. So '-D :,' would use the string ':,' as the delimiter.
+
+Quoted Delimiters: 
+-----------------
+
+If the '-e' option is used rather than '-d' or '-E' rather than '-D' then the following quoted characters are recognized:
+
+```
+        \\              backslash
+        \e              escape
+        \t              tab
+        \r              carriage-return
+        \n              newline
+        \xnn            where 'nn' is a two-digit hex-code
+```
+
+You will probably need to protect such quoted characters from the shell using quotes, or it may replace the '\' character, turning, for example, '\n' into just 'n'
+
 
 
 EXAMPLES
@@ -117,7 +140,11 @@ Cut and output fields in a particular order
 
 cut using escape and tab as delimiters
 
-`cat file | ccut -d "\e\t" -f 4`
+`cat file | ccut -e '\e\t' -f 4`
+
+cut using ' and ' as the delimiter
+
+`cat file | ccut -D ' and ' -f 2`
 
 cut honoring document quoting (quoting can use \\ ' or ")
 
