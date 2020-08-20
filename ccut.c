@@ -20,7 +20,7 @@ Copyright (c) 2015 Colum Paget <colums.projects@googlemail.com>
 //UTF-8 chars always have the top bit (128) set
 #define isUTF8ch(ch) (((ch) & 128) ? 1 : 0)
 
-char *Version="2.11";
+char *Version="3.0";
 
 
 char *Delim=NULL, *OutputDelim=NULL, *OutPath=NULL, *FieldSpec=NULL;
@@ -60,6 +60,7 @@ printf("  -c, --characters=[list] select only these characters\n");
 printf("  -d, -t, --delimiter=[list] list of delimiter characters. Default is just the 'tab' character.\n");
 printf("  -D, --delimstr=[delim] use a string as a delimiter rather than a list of single-byte ones. Only one string delimiter can be used and it cannot be used in combination with -d or -t options\n");
 printf("  -e  list of delimiter characters, but allowing quoted values like in 'echo -e'. See 'Quoted Delimiters' below\n");
+printf("  -E  like '-D' but allowing quoted values like in 'echo -e'. See 'Quoted Delimiters' below\n");
 printf("  -f, --fields=LIST       select only these fields;  also print any line without delimiter characters, unless the -s option is specified\n");
 printf("      --complement        complement the set of selected bytes, characters or fields\n");
 printf("  -j, --join-delims       combine runs of delimters and treat them as one delimiter\n");
@@ -76,11 +77,11 @@ printf("  -?  --help     display this help and exit\n");
 printf("  -v  --version  output version information and exit\n");
 printf("\n");
 printf("Use one, and only one of -b, -c or -f.  Each LIST is made up of one range, or many ranges separated by commas.\n\n");
-printf("-d is used, then all characters in the next argument are treated as individual delimiters. If -D is used, then they are treated as a single string delimiter.\n\n");
+printf("If -d is used, then all characters in the next argument are treated as individual delimiters. If -D is used, then they are treated as a single string delimiter.\n\n");
 printf("Character set support: THIS CUT DOES NOT SUPPORT 16-BIT WIDE CHARACTERS (yet). So '-c' and '-b' are equivalent. It does support UTF-8 characters via the --utf8 switch, but this overrides -b, so again -b and -c are equivalent\n\n");
 
 
-printf("Quoted Delimiters: If the '-e' option is used rather than '-d' then the following quoted characters are recognized:\n");
+printf("Quoted Delimiters: If the '-e' option is used rather than '-d' or '-E' rather than '-D' then the following quoted characters are recognized:\n");
 printf("	\\\\		backslash\n");
 printf("	\\e		escape\n");
 printf("	\\t		tab\n");
@@ -260,6 +261,16 @@ for (i=1; i < argc; i++)
 						Flags |= FLAG_DELIMSTR;
 					}
 				break;
+
+				case 'E':
+					if (StrLen(Delim) !=0) fprintf(stderr,"WARN: ignoring -E option, as delimiter set by previous option. Only one string delimiter is allowed and cannot be combined with -d or -t\n");
+					else 
+					{
+						ParseCommandValue(argc, argv, ++i, FLAG_QDELIM, &Delim);
+						Flags |= FLAG_DELIMSTR;
+					}
+				break;
+
 
 				case 'T':
 					ParseCommandValue(argc, argv, ++i, FLAG_REPLACE_DELIM, &OutputDelim);
