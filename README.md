@@ -2,6 +2,7 @@ title: ccut
 mansection: 1
 date: 2016/05/15
 
+[![Build Status](https://travis-ci.com/ColumPaget/ColumsCut.svg?branch=master)](https://travis-ci.com/ColumPaget/ColumsCut)
 
 ccut - COLUM'S CUT
 ------------------
