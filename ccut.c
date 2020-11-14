@@ -17,10 +17,12 @@ Copyright (c) 2015 Colum Paget <colums.projects@googlemail.com>
 #define DELIM_PREFIX 1
 #define DELIM_POSTFIX 2
 
+#define END_OF_LINE -1
+
 //UTF-8 chars always have the top bit (128) set
 #define isUTF8ch(ch) (((ch) & 128) ? 1 : 0)
 
-char *Version="3.0";
+char *Version="3.1";
 
 
 char *Delim=NULL, *OutputDelim=NULL, *OutPath=NULL, *FieldSpec=NULL;
@@ -105,8 +107,8 @@ printf("	eval `echo apples,oranges,pears,lemons,lime | ccut -d , -f 2,4,5,1,3 -V
 printf("This will result in the variables being set in the shell, citrus1=oranges, citrus2=lemons, citrus3=limes, poma1=apples and poma2=pears\n");
 
 printf("\n");
-printf("Report bugs to colums.projects@gmail.com, or at https://github.com/ColumPaget/ColumsCust\n");
-printf("Thanks to https://github.com/larrypl for bug reports\n");
+printf("Report bugs to colums.projects@gmail.com, or at https://github.com/ColumPaget/ColumsCut\n");
+printf("Thanks to https://github.com/larrypl and https://github.com/schragge for bug reports\n");
 
 exit(0);
 }
@@ -221,7 +223,7 @@ for (i=1; i < argc; i++)
 
 				//not working yet
 				//case 'r': Flags |= FLAG_REVERSE; break;
-				case 's': Flags |= FLAG_SUPPRESS; break;
+				case 's': Flags |= FLAG_ONLY_DELIM_LINES; break;
 				case 'q': Flags |= FLAG_QUOTED; break;
 				case 'Q': Flags |= FLAG_QUOTED | FLAG_QUOTE_STRIP; break;
 				case 'j': Flags |= FLAG_COMBINE_DELIMS; break;
@@ -343,7 +345,7 @@ for (i=1; i < argc; i++)
 
 
 					case 'o':
-						if (strcmp(ptr, "only-delimited")==0) Flags |= FLAG_SUPPRESS;
+						if (strcmp(ptr, "only-delimited")==0) Flags |= FLAG_ONLY_DELIM_LINES;
 						if (strcmp(ptr, "output-delimiter")==0) ParseCommandValue(argc, argv, ++i, FLAG_REPLACE_DELIM, &OutputDelim);
 					break;
 
@@ -419,108 +421,155 @@ return(CutFields);
 }
 
 
-int isDelimeter(const char **Chars)
+int isDelimeter(const char *Chars)
 {
-//end of string is obviously a delimiter
-if (**Chars=='\0') return(TRUE);
+//end of string is a special case. We treat it as a delimiter but
+//return a special value that can be checked by functions wanting
+//to discrimitate between a delimiter and the end of line
+if (*Chars=='\0') return(END_OF_LINE);
+
 if (Flags & FLAG_DELIMSTR)
 {
-	if (strncmp(Delim, *Chars, DelimLen)==0) 
+	if (strncmp(Delim, Chars, DelimLen)==0) 
 	{
-		if (! (Flags & FLAG_REPLACE_DELIM)) OutputDelim=CopyStrLen(OutputDelim, *Chars, DelimLen);
-		*Chars+=(DelimLen -1);
-		return(TRUE);
+		if (! (Flags & FLAG_REPLACE_DELIM)) OutputDelim=CopyStrLen(OutputDelim, Chars, DelimLen);
+		return(DelimLen);
 	}
 }
-else if (memchr(Delim,**Chars,DelimLen)) 
+else if (memchr(Delim,*Chars,DelimLen)) 
 {
-	if (! (Flags & FLAG_REPLACE_DELIM)) OutputDelim=CopyStrLen(OutputDelim, *Chars, 1);
-	return(TRUE);
+	if (! (Flags & FLAG_REPLACE_DELIM)) OutputDelim=CopyStrLen(OutputDelim, Chars, 1);
+	return(1);
 }
 
-return(FALSE);
+return(0);
 }
 
+
+const char *ConsumeDelimiters(const char *str)
+{
+const char *ptr;
+int len;
+
+ptr=str;
+len=isDelimeter(ptr);
+while (len > 0)
+{
+ptr+=len;
+len=isDelimeter(ptr);
+}
+
+return(ptr);
+}
+
+
+//Advance past any quoted strings
+const char *SkipQuotedChars(const char *Chars)
+{
+const char *ptr;
+char qchar;
+
+ptr=Chars;
+switch(*ptr)
+{
+	//for ' and " quotes, advance to the next ' or "
+	case '\'':
+	case '"':
+		qchar=*ptr;
+		ptr++;
+		while ((*ptr != '\0') && (*ptr != qchar)) ptr++;
+		if (*ptr==qchar) ptr++;
+	break;
+
+	//for backslash quoting, just skip quoted char
+	case '\\':
+		ptr++;
+		if (*ptr !='\0') ptr++;
+	break;
+}
+
+return(ptr);
+}
 
 
 const char *ExtractNextField(const char *Line, const char **Start, const char **End)
 {
 const char *ptr, *fstart;
-char qchar;
+int len;
 
 fstart=Line;
-for (ptr=fstart; /* we have to handle '\0' */ ; ptr++)
+//end-of-line is handled via isDelimeter
+for (ptr=fstart; ; ptr++)
 {
 	//if current character is one of the delimiters
-	if (Flags & FLAG_QUOTED)
-	{
-		switch(*ptr)
-		{
-		case '\'':
-		case '"':
-			qchar=*ptr;
-			ptr++;
-			while ((*ptr != '\0') && (*ptr != qchar)) ptr++;
-			if (*ptr==qchar) ptr++;
-		break;
+	if (Flags & FLAG_QUOTED) ptr=SkipQuotedChars(ptr);
 
-		case '\\':
-			ptr++;
-			if (*ptr !='\0') ptr++;
-		break;
-		}
-	}
-
-
-	if (isDelimeter(&ptr))
+	len=isDelimeter(ptr);
+	if (len)
 	{
 		*Start=fstart;
-		*End=ptr; //including delim
+		*End=ptr;
 		break;
 	}
-
 }
-
-
 
 return(ptr);
 }
 
 
 
+const char *ExtractFieldHandleDelimiter(const char *Str, int *fcount)
+{
+const char *ptr;
+int len;
+
+	ptr=Str;
+
+	//we only count a field if we found a delimiter, this is so the '-s' or
+	//--only-delimiter options can work. Thus we have to check if isDelimeter
+	//returns TRUE rather than END_OF_LINE
+	len=isDelimeter(ptr);
+	switch (len)
+	{
+	case END_OF_LINE:
+	/*don't increment ptr, nor count a field*/
+	break;
+
+	case 0:
+	ptr++;
+	break;
+
+	default:
+ 	(*fcount)++;
+	ptr+=len;
+	break;
+	}
+
+
+	if (Flags & FLAG_COMBINE_DELIMS) ptr=ConsumeDelimiters(ptr);
+
+	return(ptr);
+}
 
 
 int ExtractFields(const char *Line, TCutField *Fields)
 {
-int fcount=0;
+int fcount=0, len;
 const char *ptr;
 
 ptr=Line;
-
 while (fcount < MaxField)
 {
 	ptr=ExtractNextField(ptr, &(Fields[fcount].Start), &(Fields[fcount].End));
-	fcount++;
+	ptr=ExtractFieldHandleDelimiter(ptr, &fcount);
 	if (*ptr=='\0') break;
-	ptr++;
-
-	if (Flags & FLAG_COMBINE_DELIMS)
-	{
-		while (isDelimeter(&ptr)) ptr++;
-	}
 }
 
-
-//We have to count the remaining fields, even though we might not be outputting them, because the '--reverse' option
-//requires us to know the total number of fields
-for (; *ptr !='\0' ; ptr++)
+//We have to count the remaining fields, even though we might not be outputting them, 
+//because the '--reverse' option requires us to know the total number of fields
+while (*ptr !='\0')
 {
-	//if current character is one of the delimiters
-	if (isDelimeter(&ptr)) fcount++;
-	if (Flags & FLAG_COMBINE_DELIMS)
-	{
-		while (isDelimeter(&ptr)) ptr++;
-	}
+	ptr=ExtractFieldHandleDelimiter(ptr, &fcount);
 }
 
 return(fcount);
@@ -588,17 +637,8 @@ if (start)
 	{
 		//if we're outputing fields in reverse order than we copy a delimiter to the start
 		if (DelimFlags & DELIM_PREFIX) OutputDelimiter(delim); 
-
-		//messy calcluation. We returned the string including delimiter. We can output this by writing end-start bytes
-		//but this clips the delimiter off. If we have a string rather than a character as the delimiter though, then it
-		//only clips off the last character of the delimiter. So now we take the DelimLen from end (or 'ptr' in this case)
-		//but now we have taken off one byte too many, so must add one to ptr.
-if (Flags & FLAG_DELIMSTR) 
-{
-   if (*ptr != '\0') fwrite(start,ptr +1 - DelimLen - start,1,stdout);
-   else fwrite(start,ptr +1 - start,1,stdout);
-}
-else fwrite(start,ptr-start,1,stdout);
+    //if (Flags & FLAG_DELIMSTR) 
+		fwrite(start,ptr-start,1,stdout);
 
 		//if we're outputing fields in normal order than we copy a delimiter to the end
 		if (DelimFlags & DELIM_POSTFIX) OutputDelimiter(delim); 
@@ -647,7 +687,10 @@ else
 {
 	for (i=Start; i <= End; i++) 
 	{
-		if (IsLast && (i == End)) OutputCutField(FCount,CutFields,i, FALSE);
+		if (IsLast && (i == End)) 
+		{
+				OutputCutField(FCount,CutFields,i, FALSE);
+		}
 		else OutputCutField(FCount,CutFields,i, DELIM_POSTFIX);
 	}
 }
@@ -671,8 +714,8 @@ ptr=CutFields[First].Start;
 while (ptr && (*ptr !='\0'))
 {
 	ptr=ExtractNextField(ptr, &Start, &End);
-	if (IsLast && (*ptr=='\0')) OutputField(Start,End,FALSE);
-	else OutputField(Start,End,DELIM_POSTFIX);
+	if (IsLast && (*ptr=='\0')) OutputField(Start, End, FALSE);
+	else OutputField(Start, End, DELIM_POSTFIX);
 	if (*ptr !='\0') ptr++;
 }
 
@@ -699,8 +742,8 @@ while (*ptr != '\0')
 		if (*ptr == '\0') End=0;
 		else End=strtol(ptr,&ptr,10);
 		if (*ptr=='\0') LastField=TRUE;
-		if (End==0) OutputFieldsAfter(FCount,CutFields,Start,LastField);
-		else OutputFieldRange(FCount,CutFields,Start,End,LastField);
+		if (End==0) OutputFieldsAfter(FCount, CutFields, Start, LastField);
+		else OutputFieldRange(FCount, CutFields, Start, End, LastField);
 		Start=-1;
 		break;
 	
@@ -734,8 +777,7 @@ const char *ptr;
 //we set start to -1 to distinguish between 'no field' or 'first field'
 long Start=-1, End=-1, i;
 const char *fstart, *fend;
-
-
+int DelimFlags=0;
 
 //ptr has to be 'char *' rather than 'const char *' to keep strtol happy
 ptr=(char *) FieldSpec;
@@ -787,15 +829,21 @@ ptr=Line;
 while (*ptr !='\0')
 {
 	ptr=ExtractNextField(ptr, &fstart, &fend);
+	if (*ptr =='\0') DelimFlags=0;
+	else DelimFlags=DELIM_POSTFIX;
+
 	if (i < MaxField)
 	{
 		if (! (CutFields[i].Flags & FIELD_INCLUDED)) 
 		{
-			OutputField(fstart,fend,DELIM_POSTFIX);
+			OutputField(fstart,fend, DelimFlags);
 		}
 		if (CutFields[i].Flags & FIELD_LAST) break;
 	}
-	else OutputField(fstart,fend,DELIM_POSTFIX);
+	else 
+	{
+		OutputField(fstart,fend, DelimFlags);
+	}
 
 	i++;
 	if (*ptr !='\0') ptr++;
@@ -812,7 +860,7 @@ int count;
 		count=ExtractFields(Line,CutFields);
 		if (count==0)
 		{
-			if (Flags & FLAG_SUPPRESS) /* Do Nothing */ ;
+			if (Flags & FLAG_ONLY_DELIM_LINES) /* Do Nothing */ ;
 			else fwrite(Line,StrLen(Line),1,stdout);
 		}
 		else 

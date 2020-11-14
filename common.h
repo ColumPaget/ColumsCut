@@ -17,7 +17,7 @@ extern int Flags;
 #define FLAG_BYTES  2
 #define FLAG_FIELDS 8
 #define FLAG_REVERSE  16
-#define FLAG_SUPPRESS 32
+#define FLAG_ONLY_DELIM_LINES 32
 #define FLAG_QUOTED   64
 #define FLAG_QUOTE_STRIP 128
 #define FLAG_COMBINE_DELIMS 256

@@ -39,9 +39,11 @@ fi
 Title "Testing 'ccut'"
 TestCut "-f 3" tests/cut.1 field3 "Cut a single field"
 TestCut "-f 2-" tests/cut.1 "field2	field3	field4	field5	field6	field7" "Cut from a field to end of line"
+TestCut "-f -4" tests/cut.1 "field1	field2	field3	field4" "Cut from start of line to a field"
 TestCut "-f 2-5" tests/cut.1 "field2	field3	field4	field5" "Cut range of fields"
 TestCut "-f 5-2" tests/cut.1 "field5	field4	field3	field2" "Cut reverse range of fields"
 TestCut "-f 2,5,7" tests/cut.1 "field2	field5	field7" "Cut multiple discontinuous fields"
+TestCut "-f 2-4 --complement" tests/cut.1 "field1	field5	field6	field7" "Cut complementary fields"
 TestCut "-f 3,1,6,5" tests/cut.1 "field3	field1	field6	field5" "Cut multiple fields, rearranging their order"
 TestCut "-f 3,1,7,5" tests/cut.1 "field3	field1	field7	field5" "Cut multiple fields, rearranging their order, with final field included"
 TestCut "-T , -f 1-4" tests/cut.1 "field1,field2,field3,field4" "Cut with different delimiter for output than input"
@@ -57,7 +59,8 @@ TestCut "-Q -d , -f 2,20,3" tests/cut.5 "field2,,field3" "Cut with a non-existen
 TestCut "-Q -d , -f 20,2,3" tests/cut.5 ",field2,field3" "Cut with a non-existent field at the start"
 TestCut "-Q -d , -f 2,3,10-15" tests/cut.5 "field2,field3,,,,,," "Cut with a range of non-existent fields"
 TestCut "-c 80-95 --utf8" tests/utf8.txt "Congress‘ infras" "Cut UTF-8 input"
-
+TestCut "-s -d '*' -f 1 " tests/multiline.txt "1. this should be included
+3. this should be included" "suppress lines without delimiter"
 
 eval `cat tests/cut.1 | ./ccut -f 7,5,2 -V arg1,arg2,arg3`
 if [ "$arg1" = "field7" -a "$arg2" = "field5" -a "$arg3" = "field2" ]
